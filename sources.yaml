@@ -1,13 +1,14 @@
 # sources.yaml — where the daily scraper looks for news, per company.
 #
-# Company keys MUST match the `name` values in companies.json / the database.
+# Company keys MUST match the `name` values in industries.json.
 #
 # For each company you may list explicit RSS/Atom `feeds`. If `google_news` is
 # on (see defaults), the scraper ALSO builds a Google News RSS query for that
 # company, which gives broad coverage even for private firms (e.g. SpaceX).
 #
 # `query` is the Google News search string. If omitted, the company name is used,
-# quoted. Use OR to widen (name + ticker). Dedup is handled downstream by store.py
+# quoted. Use OR to widen (name + ticker) or to disambiguate common words like
+# "Block", "Strategy", "Meta". Dedup is handled downstream by store.py
 # (UNIQUE on company+url), so overlapping feeds are safe.
 
 defaults:
@@ -18,11 +19,11 @@ defaults:
   fetch_full_text: true        # trafilatura pulls article body; false = title+summary only
 
 # Industry-level feeds: listed ONCE here, applied to every company that belongs to
-# that industry (membership comes from the database / industries.json). Items land
-# under each member company in the news table. Keys must match industry names.
+# that industry (membership comes from industries.json). Items land under each
+# member company in the news table. Keys must match industry names exactly.
 industries:
   Semiconductors:
-    feeds: []                  # e.g. a chip-industry trade feed goes here once
+    feeds: []
   Artificial Intelligence:
     feeds: []
   Automotive:
@@ -31,7 +32,39 @@ industries:
     feeds: []
   Aerospace:
     feeds: []
+  Defense & Space:
+    feeds: []
+  Cloud & Software:
+    feeds: []
+  Financials & Banks:
+    feeds: []
+  Biotech & Pharma:
+    feeds: []
+  Cybersecurity:
+    feeds: []
+  Fintech & Payments:
+    feeds: []
+  Healthcare & Medical Devices:
+    feeds: []
+  Consumer & Retail:
+    feeds: []
+  Media & Streaming:
+    feeds: []
+  Crypto & Digital Assets:
+    feeds: []
+  AI Infrastructure & Data Centers:
+    feeds: []
+  Robotics & Automation:
+    feeds: []
+  Energy Storage:
+    feeds: []
+  Transportation & Logistics:
+    feeds: []
 
+# Per-company overrides. Most companies rely on the auto Google News query
+# (company name, quoted). Listed below are the ones that need a custom query
+# (private firms with no ticker, or names that are common English words) or a
+# dedicated RSS feed. Everything not listed here still gets covered via defaults.
 companies:
   NVIDIA:
     query: '"NVIDIA" OR NVDA'
@@ -42,10 +75,75 @@ companies:
     query: '"Tesla, Inc." OR TSLA'
     feeds: []
 
-  SpaceX:
-    query: '"SpaceX"'
+  Meta Platforms:
+    query: '"Meta Platforms" OR "Meta stock" OR META'
+    feeds: []
+
+  Block:
+    query: '"Block Inc" OR "Block, Inc." OR "Square Block" OR XYZ'
+    feeds: []
+
+  Strategy:
+    query: '"MicroStrategy" OR "Strategy MSTR" OR MSTR'
+    feeds: []
+
+  Alphabet:
+    query: '"Alphabet Inc" OR "Google parent" OR GOOGL'
     feeds: []
 
   Taiwan Semiconductor:
     query: '"Taiwan Semiconductor" OR TSMC OR "TSM stock"'
+    feeds: []
+
+  SpaceX:
+    query: '"SpaceX"'
+    feeds: []
+
+  OpenAI:
+    query: '"OpenAI"'
+    feeds: []
+
+  Anthropic:
+    query: '"Anthropic" AND (AI OR Claude OR startup)'
+    feeds: []
+
+  Anduril Industries:
+    query: '"Anduril"'
+    feeds: []
+
+  Stripe:
+    query: '"Stripe" AND (payments OR fintech OR valuation)'
+    feeds: []
+
+  Form Energy:
+    query: '"Form Energy" AND (battery OR storage OR iron)'
+    feeds: []
+
+  # Private / pre-IPO companies — no ticker, so a tuned query keeps the noise down.
+  Databricks:
+    query: '"Databricks"'
+    feeds: []
+
+  xAI:
+    query: '"xAI" AND (Musk OR Grok OR "artificial intelligence")'
+    feeds: []
+
+  Scale AI:
+    query: '"Scale AI"'
+    feeds: []
+
+  Mistral AI:
+    query: '"Mistral AI"'
+    feeds: []
+
+  Figure AI:
+    query: '"Figure AI" OR "Figure robotics"'
+    feeds: []
+
+  Revolut:
+    query: '"Revolut"'
+    feeds: []
+
+  Plaid:
+    query: '"Plaid" AND (fintech OR banking OR API OR payments)'
     feeds: []

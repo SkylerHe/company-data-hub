@@ -90,7 +90,7 @@ watermark for incremental daily pulls.
 Run it:
 ```bash
 python store.py --init                 # create finance.db
-python store.py --load companies.json  # load companies
+python store.py --load industries.json # load industries + companies
 python store.py --stats                # inspect
 ```
 

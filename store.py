@@ -19,7 +19,7 @@ backfill or a retried day never creates duplicates.
 Stdlib only — no pip install needed.
 
     python store.py --init                 # create the database
-    python store.py --load companies.json  # add/update companies from a JSON file
+    python store.py --load industries.json # add/update industries + companies from JSON
     python store.py --stats                # see what's in it
 """
 
@@ -68,7 +68,10 @@ def init_db(db: sqlite3.Connection) -> None:
             url          TEXT,
             title        TEXT,
             published_at TEXT,                -- ISO date, e.g. 2026-06-15
-            content      TEXT,
+            content      TEXT,                 -- the FULL original article text, stored
+                                               --   verbatim (plain text, not HTML) so you
+                                               --   can always pull the original back up.
+                                               --   Never summarized or truncated here.
             fetched_at   TEXT,
             UNIQUE(company_id, url)           -- same article can attach to >1 company
         );
@@ -92,7 +95,7 @@ def init_db(db: sqlite3.Connection) -> None:
             url         TEXT,
             date        TEXT,
             title       TEXT,
-            content     TEXT,
+            content     TEXT,                 -- the FULL original filing text, stored verbatim
             fetched_at  TEXT,
             UNIQUE(company_id, url)
         );
@@ -311,7 +314,10 @@ def load(db, path) -> None:
 # Ingestion (called by the scraper). All idempotent.
 # ----------------------------------------------------------------------------
 def add_news(db, company, source, url, title, published_at, content) -> int | None:
-    """Add a news item. Returns new id, or None if this (company, url) already exists."""
+    """Add a news item. Returns new id, or None if this (company, url) already exists.
+
+    `content` is stored verbatim — the full original article text — so it can be
+    retrieved in full later (see get_news / `--show`)."""
     cid = company_id(db, company)
     cur = db.execute(
         """
@@ -342,6 +348,7 @@ def add_metric(db, company, metric, period, value, unit=None, source=None) -> No
 
 
 def add_filing(db, company, type, url, date, title, content) -> int | None:
+    """Add a filing. `content` is the full original text, stored verbatim."""
     cid = company_id(db, company)
     cur = db.execute(
         """
@@ -383,6 +390,41 @@ def set_last_fetched(db, company, when=None) -> None:
         (when or _now(), cid),
     )
     db.commit()
+
+
+# ----------------------------------------------------------------------------
+# Retrieval — pull the full original text back up for reference
+# ----------------------------------------------------------------------------
+def get_news(db, url=None, news_id=None) -> list[dict]:
+    """Return stored news item(s) including the FULL original text.
+
+    Look up by exact `url` or by `news_id`. This is the primitive the query layer
+    (or you, via `--show`) uses to show an original document verbatim later."""
+    cols = ("id", "company", "title", "source", "url", "published_at", "content")
+    sql = (
+        "SELECT n.id, c.name, n.title, n.source, n.url, n.published_at, n.content "
+        "FROM news n JOIN companies c ON n.company_id = c.id WHERE "
+    )
+    if news_id is not None:
+        rows = db.execute(sql + "n.id = ?", (news_id,)).fetchall()
+    elif url is not None:
+        rows = db.execute(sql + "n.url = ?", (url,)).fetchall()
+    else:
+        return []
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def show_news(db, url=None, news_id=None) -> None:
+    """Print the full stored original text of a news item."""
+    items = get_news(db, url=url, news_id=news_id)
+    if not items:
+        print("No stored news item matched.")
+        return
+    for it in items:
+        print(f"# {it['title']}")
+        print(f"{it['company']}  |  {it['source'] or '-'}  |  {it['published_at'] or '-'}")
+        print(f"{it['url']}\n")
+        print(it["content"] or "(no full text stored for this item)")
 
 
 # ----------------------------------------------------------------------------
@@ -436,9 +478,11 @@ if __name__ == "__main__":
     ap.add_argument("--in-industry", metavar="NAME",
                     help="list the companies in an industry, then exit")
     ap.add_argument("--stats", action="store_true", help="show row counts")
+    ap.add_argument("--show", metavar="URL",
+                    help="print the full stored original text of a news item by URL")
     args = ap.parse_args()
 
-    if not (args.init or args.load or args.in_industry or args.stats):
+    if not (args.init or args.load or args.in_industry or args.stats or args.show):
         ap.print_help(sys.stderr)
         sys.exit(1)
 
@@ -451,3 +495,5 @@ if __name__ == "__main__":
         print(f"{args.in_industry}: " + (", ".join(names) if names else "(none)"))
     if args.stats:
         stats(db)
+    if args.show:
+        show_news(db, url=args.show)

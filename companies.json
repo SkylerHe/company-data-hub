@@ -1,6 +1,0 @@
-[
-  {"name": "SpaceX", "sector": "Aerospace", "private": true},
-  {"name": "NVIDIA", "ticker": "NVDA", "sector": "Semiconductors"},
-  {"name": "Tesla", "ticker": "TSLA", "sector": "Automotive"},
-  {"name": "Taiwan Semiconductor", "ticker": "TSM", "sector": "Semiconductors"}
-]

@@ -14,7 +14,7 @@ aborts the run. Everything lives in store.py's schema; this file only ingests.
 
     pip install -r requirements.txt
     python store.py --init                     # once, creates finance.db
-    python store.py --load companies.json      # once, loads your company list
+    python store.py --load industries.json     # once, loads your industries + companies
     python scrape.py                           # the daily job
 
 Useful flags:
@@ -144,6 +144,10 @@ def clean_url(url: str) -> str:
 
 
 def fetch_full_text(url: str) -> str | None:
+    """Download a page and return its FULL article text (plain text, not HTML).
+
+    This complete text is what gets stored verbatim in news.content, so the
+    original can always be shown again later — no summarizing, no truncation."""
     if trafilatura is None:
         return None
     try:

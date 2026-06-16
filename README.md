@@ -19,8 +19,7 @@ vs. an MCP server) is intentionally left open.
 
 ## Files
 - `store.py` — SQLite storage layer (now with industries; tested).
-- `industries.json` — **industry-first** input: industries with their companies (recommended).
-- `companies.json` — flat company list (still supported; sample of 4).
+- `industries.json` — **the single source of truth**: every industry with its companies (a company may appear under several). A flat list shape is still accepted by `--load`, but this repo tracks everything here.
 - `sources.yaml` — where the scraper looks for news, per company and per industry.
 - `scrape.py` — the daily scraper (RSS via feedparser + full text via trafilatura).
 - `requirements.txt` — `feedparser`, `trafilatura`, `PyYAML`.
@@ -46,7 +45,7 @@ cheap: filter to an industry, then load only those companies' summaries into one
 LLM call.
 
 ```bash
-python store.py --in-industry "Artificial Intelligence"   # -> NVIDIA, Tesla
+python store.py --in-industry "Artificial Intelligence"   # -> NVIDIA, Microsoft, Alphabet, ...
 ```
 
 In code, `store.companies_in_industry(db, name)` is the search primitive the query
@@ -74,10 +73,19 @@ python scrape.py --dry-run             # parse everything, write nothing
   feeds never create duplicates. Tracking params (utm_, etc.) are stripped first.
 - **No LLM in the scraper** — it only fetches and stores text. The expensive
   "reading" is deferred to the (later) enrichment + query steps.
+- **Originals are kept** — the full article text is stored verbatim in
+  `news.content` (plain text, not HTML: cheap to store, easy to search). Nothing
+  truncates or summarizes it, so you can always pull the original back up:
+  ```bash
+  python store.py --show "https://www.example.com/the-article"
+  ```
+  In code, `store.get_news(db, url=...)` returns the item with its full text — the
+  primitive the query layer uses when you ask the agent to "show the original."
 
 ## Verified
-`test_scrape_offline.py` (8 checks) covers dedup, idempotency, watermark
-filter + advance, URL cleaning, full-text vs. summary, and dry-run.
+`test_scrape_offline.py` (9 checks) covers dedup, idempotency, watermark
+filter + advance, URL cleaning, full-text vs. summary, dry-run, and full-text
+retrieval.
 `test_industries_offline.py` (7 checks) covers industry-first load, multi-membership,
 `companies_in_industry`, idempotent reload, and industry-level feed routing.
 Both stub feedparser/trafilatura because the build sandbox is offline.

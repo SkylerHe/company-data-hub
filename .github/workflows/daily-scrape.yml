@@ -55,7 +55,7 @@ jobs:
       - name: Ensure schema + company list
         run: |
           python store.py --init
-          python store.py --load companies.json
+          python store.py --load industries.json
 
       - name: Scrape
         run: |

@@ -68,7 +68,7 @@ def check(label, cond):
 
 db = store.get_db(DB)
 store.init_db(db)
-store.load_companies_from_json(db, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "companies.json"))
+store.load(db, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "industries.json"))
 cfg = scrape.load_sources(SRC)
 defaults = cfg["defaults"]
 nvidia_conf = cfg["companies"]["NVIDIA"]
@@ -115,6 +115,13 @@ print("Test 8: --dry-run writes nothing")
 a3 = Args(); a3.company = "SpaceX"; a3.dry_run = True
 scrape.scrape_company(db, "SpaceX", cfg["companies"]["SpaceX"], defaults, a3)
 check("SpaceX has 0 rows after dry run", count_news(db, "SpaceX") == 0)
+
+print("Test 9: full original text is retrievable verbatim via get_news/--show")
+items = store.get_news(db, url="https://ex.com/a")
+check("get_news returns stored item(s) for the url", len(items) >= 1)
+nvidia_item = [it for it in items if it["company"] == "NVIDIA"]
+check("NVIDIA original full text retrievable, untruncated",
+      bool(nvidia_item) and nvidia_item[0]["content"].startswith("FULLTEXT"))
 
 db.close()
 print("\nRESULT:", "ALL PASS" if ok else "FAILURES PRESENT")
