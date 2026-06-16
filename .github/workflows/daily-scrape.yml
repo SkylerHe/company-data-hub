@@ -1,0 +1,78 @@
+# GitHub Actions: run the daily news scraper on a free cron.
+#
+# Place this at .github/workflows/daily-scrape.yml in your repo.
+#
+# Persistence: finance.db is carried between daily runs via actions/cache. This is
+# free and needs no secrets, and it's safe because ingestion is idempotent + the
+# watermark means a lost cache just re-pulls a recent window (dedup prevents
+# duplicates). Once the DB matters / grows, switch to a durable backup
+# (Litestream or Turso) — see HANDOFF step 5.
+
+name: daily-scrape
+
+on:
+  schedule:
+    - cron: "0 11 * * *"      # 11:00 UTC daily (~6–7am US Eastern). Adjust to taste.
+  workflow_dispatch:           # lets you run it manually from the Actions tab
+    inputs:
+      since:
+        description: "Optional backfill date (YYYY-MM-DD) passed to --since"
+        required: false
+        default: ""
+
+concurrency:
+  group: daily-scrape          # never let two runs touch the DB at once
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Restore the most recent finance.db from a previous run, if any.
+      # A unique key per run + a restore prefix gives "save new / load latest".
+      - name: Restore database cache
+        id: db-cache
+        uses: actions/cache@v4
+        with:
+          path: finance.db
+          key: finance-db-${{ github.run_id }}
+          restore-keys: |
+            finance-db-
+
+      - name: Ensure schema + company list
+        run: |
+          python store.py --init
+          python store.py --load companies.json
+
+      - name: Scrape
+        run: |
+          if [ -n "${{ github.event.inputs.since }}" ]; then
+            python scrape.py --since "${{ github.event.inputs.since }}"
+          else
+            python scrape.py
+          fi
+
+      - name: Stats
+        run: python store.py --stats
+
+      # Snapshot the DB as a downloadable artifact (handy + a rough backup).
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finance-db
+          path: finance.db
+          retention-days: 14
+          if-no-files-found: warn

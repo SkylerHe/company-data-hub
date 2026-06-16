@@ -1,0 +1,17 @@
+# Database (don't commit the binary; CI uses cache / artifacts — see HANDOFF step 5)
+finance.db
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

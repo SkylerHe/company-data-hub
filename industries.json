@@ -1,0 +1,29 @@
+{
+  "Semiconductors": {
+    "companies": [
+      {"name": "NVIDIA", "ticker": "NVDA"},
+      {"name": "Taiwan Semiconductor", "ticker": "TSM"}
+    ]
+  },
+  "Artificial Intelligence": {
+    "companies": [
+      {"name": "NVIDIA", "ticker": "NVDA"},
+      {"name": "Tesla", "ticker": "TSLA"}
+    ]
+  },
+  "Automotive": {
+    "companies": [
+      {"name": "Tesla", "ticker": "TSLA"}
+    ]
+  },
+  "Energy": {
+    "companies": [
+      {"name": "Tesla", "ticker": "TSLA"}
+    ]
+  },
+  "Aerospace": {
+    "companies": [
+      {"name": "SpaceX", "private": true}
+    ]
+  }
+}

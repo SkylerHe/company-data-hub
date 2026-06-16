@@ -1,0 +1,51 @@
+# sources.yaml — where the daily scraper looks for news, per company.
+#
+# Company keys MUST match the `name` values in companies.json / the database.
+#
+# For each company you may list explicit RSS/Atom `feeds`. If `google_news` is
+# on (see defaults), the scraper ALSO builds a Google News RSS query for that
+# company, which gives broad coverage even for private firms (e.g. SpaceX).
+#
+# `query` is the Google News search string. If omitted, the company name is used,
+# quoted. Use OR to widen (name + ticker). Dedup is handled downstream by store.py
+# (UNIQUE on company+url), so overlapping feeds are safe.
+
+defaults:
+  google_news: true            # auto-add a Google News RSS feed per company
+  language: en-US
+  country: US
+  max_articles_per_feed: 25    # safety cap, per feed, per run
+  fetch_full_text: true        # trafilatura pulls article body; false = title+summary only
+
+# Industry-level feeds: listed ONCE here, applied to every company that belongs to
+# that industry (membership comes from the database / industries.json). Items land
+# under each member company in the news table. Keys must match industry names.
+industries:
+  Semiconductors:
+    feeds: []                  # e.g. a chip-industry trade feed goes here once
+  Artificial Intelligence:
+    feeds: []
+  Automotive:
+    feeds: []
+  Energy:
+    feeds: []
+  Aerospace:
+    feeds: []
+
+companies:
+  NVIDIA:
+    query: '"NVIDIA" OR NVDA'
+    feeds:
+      - https://nvidianews.nvidia.com/releases.xml
+
+  Tesla:
+    query: '"Tesla, Inc." OR TSLA'
+    feeds: []
+
+  SpaceX:
+    query: '"SpaceX"'
+    feeds: []
+
+  Taiwan Semiconductor:
+    query: '"Taiwan Semiconductor" OR TSMC OR "TSM stock"'
+    feeds: []
