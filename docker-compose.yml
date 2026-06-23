@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Main application - Dashboard
+  dashboard:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./.env:/app/.env:ro
+    environment:
+      - DB_PATH=/data/finance.db
+    command: python dashboard.py
+    restart: unless-stopped
+
+  # Daily scraper - News collection
+  scraper-news:
+    build: .
+    volumes:
+      - ./data:/data
+      - ./.env:/app/.env:ro
+    environment:
+      - DB_PATH=/data/finance.db
+    command: >
+      sh -c "python store.py --init &&
+             python store.py --load industries.json &&
+             while true; do
+               echo \"[$(date)] Starting news collection...\"
+               python scrape.py
+               echo \"[$(date)] News collection complete\"
+               sleep 86400
+             done"
+    restart: unless-stopped
+
+  # Daily scraper - SEC filings
+  scraper-filings:
+    build: .
+    volumes:
+      - ./data:/data
+      - ./.env:/app/.env:ro
+    environment:
+      - DB_PATH=/data/finance.db
+    command: >
+      sh -c "while true; do
+               echo \"[$(date)] Starting SEC filing collection...\"
+               python scrape_filings.py
+               echo \"[$(date)] SEC filing collection complete\"
+               sleep 86400
+             done"
+    restart: unless-stopped
+    depends_on:
+      - scraper-news
+
+volumes:
+  data:

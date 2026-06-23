@@ -8,6 +8,25 @@ Scrapes news, research, and podcasts about companies you track. Stores full arti
 
 ## Quick Start
 
+### Option 1: Docker (Recommended for OrbStack users)
+
+```bash
+# 1. Create environment file
+echo 'SEC_IDENTITY="YourName your.email@example.com"' > .env
+
+# 2. Start everything with one command
+docker-compose up -d
+
+# 3. Open dashboard
+open http://localhost:8000
+```
+
+That's it! Dashboard runs at http://localhost:8000 and data collects automatically every 24 hours.
+
+See [DOCKER.md](DOCKER.md) for full Docker guide.
+
+### Option 2: Native Python
+
 ```bash
 pip install -r requirements.txt
 

@@ -1,0 +1,18 @@
+# Don't copy these into Docker image
+.git
+.gitignore
+*.db
+*.db-wal
+*.db-shm
+*.log
+venv/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+data/
+*.md
+!README.md
+HANDOFF.md.old
+research_firm_rss_feeds.yaml
