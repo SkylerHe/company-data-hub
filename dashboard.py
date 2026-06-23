@@ -190,6 +190,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             background: #f5f5f7;
             border-radius: 8px;
             border-left: 4px solid #0071e3;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .timeline-item:hover {
+            background: #e8e8ed;
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .timeline-date {
             font-size: 12px;
@@ -199,10 +206,90 @@ class DashboardHandler(BaseHTTPRequestHandler):
         .timeline-title {
             font-weight: 500;
             margin-bottom: 4px;
+            color: #0071e3;
         }
         .timeline-source {
             font-size: 12px;
             color: #6e6e73;
+        }
+
+        /* Modal for article view */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f5f5f7;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 32px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .modal-close:hover {
+            background: #e8e8ed;
+        }
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .modal-meta {
+            font-size: 14px;
+            color: #6e6e73;
+        }
+        .modal-body {
+            line-height: 1.6;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+        .external-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #0071e3;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .external-link:hover {
+            background: #0077ed;
         }
         .filing-badge {
             display: inline-block;
@@ -285,6 +372,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <div id="tab-content">
                 <div class="loading">Select an industry to view companies</div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal for viewing full content -->
+    <div class="modal" id="content-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title"></h2>
+                <div class="modal-meta" id="modal-meta"></div>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <a href="#" class="external-link" id="modal-link" target="_blank">View Original →</a>
         </div>
     </div>
 
@@ -378,8 +478,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             document.getElementById('tab-content').innerHTML = `
                 <h2>Latest News - ${industry}</h2>
                 <div class="timeline">
-                    ${news.map(item => `
-                        <div class="timeline-item">
+                    ${news.map((item, idx) => `
+                        <div class="timeline-item" onclick="viewArticle(${idx}, 'news')">
                             <div class="timeline-date">${item.published_at} • ${item.company}</div>
                             <div class="timeline-title">${item.title}</div>
                             <div class="timeline-source">${item.source || 'Unknown source'}</div>
@@ -387,6 +487,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     `).join('')}
                 </div>
             `;
+
+            // Store news data for modal access
+            window.currentNews = news;
         }
 
         async function loadFilings(industry) {
@@ -398,8 +501,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             document.getElementById('tab-content').innerHTML = `
                 <h2>Latest SEC Filings - ${industry}</h2>
                 <div class="timeline">
-                    ${filings.map(item => `
-                        <div class="timeline-item">
+                    ${filings.map((item, idx) => `
+                        <div class="timeline-item" onclick="viewArticle(${idx}, 'filing')">
                             <div class="timeline-date">${item.date} • ${item.company}</div>
                             <div class="timeline-title">
                                 <span class="filing-badge">${item.type}</span>
@@ -409,6 +512,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     `).join('')}
                 </div>
             `;
+
+            // Store filings data for modal access
+            window.currentFilings = filings;
         }
 
         function showTab(tab) {
@@ -434,6 +540,52 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 loadFilings(selectedIndustry);
             }
         }
+
+        function viewArticle(index, type) {
+            let item;
+            if (type === 'news') {
+                item = window.currentNews[index];
+                document.getElementById('modal-title').textContent = item.title;
+                document.getElementById('modal-meta').textContent = `${item.company} • ${item.source || 'Unknown'} • ${item.published_at}`;
+                document.getElementById('modal-body').textContent = item.content || 'No content available';
+                document.getElementById('modal-link').href = item.url;
+            } else if (type === 'filing') {
+                item = window.currentFilings[index];
+                document.getElementById('modal-title').textContent = item.title;
+                document.getElementById('modal-meta').textContent = `${item.company} • ${item.type} • ${item.date}`;
+                document.getElementById('modal-body').textContent = item.content || 'Loading...';
+                document.getElementById('modal-link').href = item.url;
+
+                // Fetch full filing content if not loaded
+                if (!item.content) {
+                    fetch(`/api/filing-content?url=${encodeURIComponent(item.url)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            document.getElementById('modal-body').textContent = data.content || 'No content available';
+                        });
+                }
+            }
+
+            document.getElementById('content-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('content-modal').classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('content-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
 
         // Load initial data
         loadStats();
@@ -513,7 +665,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 n.title,
                 n.source,
                 n.published_at,
-                n.url
+                n.url,
+                n.content
             FROM news n
             JOIN companies c ON n.company_id = c.id
             JOIN company_industries ci ON c.id = ci.company_id
@@ -537,7 +690,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 f.type,
                 f.title,
                 f.date,
-                f.url
+                f.url,
+                SUBSTR(f.content, 1, 5000) as content
             FROM filings f
             JOIN companies c ON f.company_id = c.id
             JOIN company_industries ci ON c.id = ci.company_id

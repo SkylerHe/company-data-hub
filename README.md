@@ -1,139 +1,102 @@
-# company-data-hub
+# Company Data Hub
 
-Daily news collection for 154 companies across 19 industries. Everything runs locally with SQLite.
+Automated equity research data collection system tracking 154 companies across 19 industries.
 
-## What This Does
+## What This Collects
 
-Scrapes news, research, and podcasts about companies you track. Stores full article text in a local database.
+**News & Research:**
+- Company press releases and official announcements
+- Financial news from Bloomberg, Wall Street Journal, TechCrunch
+- Industry analysis from BioPharma Dive, EE Times, SemiAnalysis
+- Venture capital and startup funding news from Crunchbase, PitchBook
+- Podcast episode descriptions from Morgan Stanley, Goldman Sachs, a16z, Acquired
 
-## Quick Start
+**SEC Filings:**
+- 10-K annual reports (full business overview, financials, risk factors)
+- 10-Q quarterly reports (recent performance updates)
+- 8-K material event filings (M&A, leadership changes, earnings releases)
 
-### Option 1: Docker (Recommended for OrbStack users)
+## Data Storage
 
-```bash
-# 1. Create environment file
-echo 'SEC_IDENTITY="YourName your.email@example.com"' > .env
+All data stored locally in SQLite database (`finance.db`):
+- Full article text (not summaries)
+- Complete SEC filing text
+- Publication dates and sources
+- Company and industry tags
 
-# 2. Start everything with one command
-docker-compose up -d
+## Data Sources
 
-# 3. Open dashboard
-open http://localhost:8000
-```
+All sources are free and publicly available:
 
-That's it! Dashboard runs at http://localhost:8000 and data collects automatically every 24 hours.
+**Official Company RSS Feeds (20 companies):**
+- Apple, Microsoft, Amazon, NVIDIA, Meta Platforms, Intel, Oracle, Netflix, AMD, Stripe, OpenAI, SpaceX, Databricks, PayPal, Lockheed Martin, Salesforce, IBM, Cisco, Coinbase
 
-See [DOCKER.md](DOCKER.md) for full Docker guide.
+**Financial News:**
+- Bloomberg Technology
+- Wall Street Journal Markets & Technology
+- TechCrunch
 
-### Option 2: Native Python
+**Industry Research Publications:**
+- BioPharma Dive (biotech/pharma news)
+- FierceBiotech (drug development, R&D)
+- EE Times (semiconductor industry)
+- SemiWiki (chip design)
+- SemiAnalysis (technical chip analysis)
+- Crunchbase News (venture funding)
+- PitchBook Blog (VC/PE insights)
 
-```bash
-pip install -r requirements.txt
+**Financial Research Podcasts (episode descriptions):**
+- Morgan Stanley "Thoughts on the Market"
+- Goldman Sachs "Exchanges"
+- JPMorgan Global Research
+- a16z Show
+- Acquired (Ben Gilbert & David Rosenthal)
+- Invest Like the Best
 
-# Set up your SEC identity (required for filing scraper)
-echo 'SEC_IDENTITY="YourName your.email@example.com"' > .env
+**SEC EDGAR:**
+- All public company filings via SEC's official API
+- 10-K, 10-Q, 8-K forms with full text
 
-# Initialize database and load companies
-python store.py --init
-python store.py --load industries.json
+## Industries Tracked
 
-# Initial backfill (run once to get all filings since 2024)
-python scrape_filings.py --since 2024-01-01
+19 industries, 154 companies total:
 
-# Daily operations
-python scrape.py                    # Collect news
-python scrape_filings.py            # Collect new filings
-python store.py --stats             # View results
-```
+- Semiconductors (10 companies)
+- Artificial Intelligence (14 companies)
+- Automotive (10 companies)
+- Energy (10 companies)
+- Aerospace (8 companies)
+- Defense & Space (10 companies)
+- Cloud & Software (11 companies)
+- Financials & Banks (10 companies)
+- Biotech & Pharma (10 companies)
+- Cybersecurity (9 companies)
+- Fintech & Payments (12 companies)
+- Healthcare & Medical Devices (10 companies)
+- Consumer & Retail (10 companies)
+- Media & Streaming (8 companies)
+- Crypto & Digital Assets (7 companies)
+- AI Infrastructure & Data Centers (11 companies)
+- Robotics & Automation (9 companies)
+- Energy Storage (9 companies)
+- Transportation & Logistics (9 companies)
 
-## Data Sources (All Free)
+See `industries.json` for complete company list.
 
-**Official company feeds (20 companies):**
-Apple, Microsoft, Amazon, NVIDIA, Meta, Intel, Oracle, Netflix, etc.
+## Web Dashboard
 
-**News outlets:**
-Bloomberg, Wall Street Journal, TechCrunch
+View collected data at **http://localhost:8000** (run `python dashboard.py` or `docker-compose up -d`)
 
-**Industry research:**
-BioPharma Dive, FierceBiotech, EE Times, SemiAnalysis, Crunchbase, PitchBook
+**Features:**
+- Browse by industry
+- View companies, news articles, and SEC filings
+- Click news titles to read full article text
+- Click filings to see complete SEC documents
+- Real-time statistics
 
-**Podcasts (episode descriptions):**
-Morgan Stanley, Goldman Sachs, JPMorgan, a16z, Acquired, Invest Like the Best
+## Setup & Usage
 
-**SEC filings (for public companies):**
-10-K (annual reports), 10-Q (quarterly reports), 8-K (material events)
-
-## Data Collected
-
-- **Full article text** (not summaries)
-- **SEC filing full text** (10-K, 10-Q, 8-K)
-- **Podcast episode descriptions**
-- **Publication dates and sources**
-- **Company and industry tags**
-
-Stored in SQLite database (`finance.db`)
-
-## Files
-
-- `scrape.py` - Daily news scraper
-- `scrape_filings.py` - SEC filing scraper (requires SEC_IDENTITY env var)
-- `store.py` - Database operations
-- `sources.yaml` - RSS feed configuration
-- `industries.json` - 154 companies × 19 industries
-- `finance.db` - SQLite database (created on first run)
-
-## Automated Collection
-
-Set up daily automated collection that runs even when you're not actively using your computer:
-
-```bash
-# One-command setup (runs daily at 9 AM automatically)
-./setup_automation.sh
-```
-
-This sets up macOS launchd to run data collection every day at 9 AM. Works even when:
-- Terminal is closed
-- You're not logged in
-- Computer wakes from sleep
-
-**Alternative options:** See `AUTOMATION.md` for cron setup, GitHub Actions, or cloud deployment.
-
-## View Your Data
-
-### Web Dashboard (Recommended)
-
-Visual, easy-to-use interface in your browser:
-
-```bash
-python dashboard.py
-```
-
-Then open: **http://localhost:8000**
-
-Features:
-- 📊 Live statistics (companies, industries, news, filings)
-- 🏭 Browse by industry
-- 🏢 View companies in each industry
-- 📰 Latest news articles by industry
-- 📄 Latest SEC filings by industry
-- Clean, modern UI
-
-### Command Line Tools
-
-```bash
-# Quick status check
-./check_status.sh
-
-# Interactive terminal browser
-./view_data.sh
-
-# Raw database stats
-python store.py --stats
-
-# Watch live collection logs
-tail -f scraper.log
-```
-
-## Next Steps
-
-See `PLAN.md` for full roadmap to build equity research platform.
+See setup guides:
+- `DOCKER.md` - Docker setup (recommended for OrbStack users)
+- `AUTOMATION.md` - Automated daily collection setup
+- `PLAN.md` - Development roadmap
