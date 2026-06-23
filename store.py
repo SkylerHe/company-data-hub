@@ -457,16 +457,17 @@ def stats(db) -> None:
         SELECT c.name,
                (SELECT COUNT(*) FROM news    n WHERE n.company_id = c.id),
                (SELECT COUNT(*) FROM metrics m WHERE m.company_id = c.id),
+               (SELECT COUNT(*) FROM filings f WHERE f.company_id = c.id),
                c.last_fetched
         FROM companies c
         ORDER BY c.name
         """
     ).fetchall()
     if rows:
-        print("\nPer company (news / metrics / industries / last_fetched):")
-        for name, nnews, nmetrics, lf in rows:
+        print("\nPer company (news / metrics / filings / industries / last_fetched):")
+        for name, nnews, nmetrics, nfilings, lf in rows:
             inds = ", ".join(industries_of(db, name)) or "-"
-            print(f"  {name:<20} {nnews:>4} / {nmetrics:>4}   {inds:<28} {lf or '-'}")
+            print(f"  {name:<20} {nnews:>4} / {nmetrics:>4} / {nfilings:>4}   {inds:<28} {lf or '-'}")
 
 
 if __name__ == "__main__":

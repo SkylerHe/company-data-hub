@@ -4,6 +4,12 @@ finance.db
 *.db-wal
 *.db-shm
 
+# Environment variables (contains SEC_IDENTITY email)
+.env
+
+# Logs
+*.log
+
 # Python
 __pycache__/
 *.py[cod]

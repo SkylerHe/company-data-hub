@@ -12,138 +12,230 @@
 # (UNIQUE on company+url), so overlapping feeds are safe.
 
 defaults:
-  google_news: true            # auto-add a Google News RSS feed per company
-  language: en-US
-  country: US
   max_articles_per_feed: 25    # safety cap, per feed, per run
   fetch_full_text: true        # trafilatura pulls article body; false = title+summary only
 
 # Industry-level feeds: listed ONCE here, applied to every company that belongs to
 # that industry (membership comes from industries.json). Items land under each
 # member company in the news table. Keys must match industry names exactly.
+#
+# NOTE: Podcast feeds are included below. The scraper will capture episode titles
+# and descriptions (summaries) which often provide valuable research insights.
+# Audio transcription is not yet implemented - only text descriptions are stored.
 industries:
   Semiconductors:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/technology/news.rss
+      - https://feeds.a.dj.com/rss/RSSWSJD.xml
+      # Industry research publications (FREE)
+      - https://www.eetimes.com/feed  # EE Times - Semiconductor industry news
+      - https://www.eetimes.com/tag/semiconductors/feed  # EE Times - Semiconductors only
+      - https://semiwiki.com/feed  # SemiWiki - Professional community
+      - https://semianalysis.substack.com/feed  # SemiAnalysis - Deep technical analysis
   Artificial Intelligence:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/category/artificial-intelligence/feed
+      - https://feeds.bloomberg.com/technology/news.rss
+      - https://feeds.a.dj.com/rss/RSSWSJD.xml
+      # Industry research publications (FREE)
+      - https://news.crunchbase.com/feed  # Crunchbase News - Startup funding, AI companies
+      - https://seekingalpha.com/feed.xml  # Seeking Alpha - Equity research
+      # Podcasts - episode descriptions only
+      - https://feeds.simplecast.com/JGE3yC0V  # a16z Show
+      - https://feeds.simplecast.com/j9kKMsfH  # 16 Minutes on the News (a16z)
   Automotive:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
   Energy:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
+      - https://feeds.bloomberg.com/markets/news.rss
   Aerospace:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
   Defense & Space:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
   Cloud & Software:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/feed
+      - https://feeds.bloomberg.com/technology/news.rss
+      - https://feeds.a.dj.com/rss/RSSWSJD.xml
+      # Podcasts - episode descriptions only
+      - https://feeds.simplecast.com/JGE3yC0V  # a16z Show
+      - https://feeds.megaphone.fm/WSJ8523681216  # WSJ Tech News Briefing
+      - https://feeds.transistor.fm/acquired  # Acquired (company deep dives)
   Financials & Banks:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/markets/news.rss
+      - https://feeds.a.dj.com/rss/RSSMarketsMain.xml
+      - https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml
+      # VC/Hedge Fund research (FREE)
+      - https://pitchbook.com/blog/feed  # PitchBook - VC/PE/M&A insights
+      - https://news.crunchbase.com/feed  # Crunchbase - Venture funding news
+      # Podcasts - episode descriptions only (no audio transcription yet)
+      - https://art19.com/shows/thoughts-on-the-market  # Morgan Stanley
+      - http://www.goldmansachs.com/exchanges-podcast/feed.rss  # Goldman Sachs
+      - https://feed.podbean.com/atanyrate/feed.xml  # JPMorgan Global Research
+      - https://feed.podbean.com/globaldatapod/feed.xml  # JPMorgan Economics
+      - https://feeds.megaphone.fm/WSJ4886593505  # WSJ What's News
+      - https://video-api.barrons.com/podcast/rss/barrons/streetwise?partner=itunes  # Barron's Streetwise
   Biotech & Pharma:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
+      # Industry research publications (FREE)
+      - https://www.biopharmadive.com/feeds/news  # BioPharma Dive - FDA, trials, drug development
+      - https://www.fiercebiotech.com/rss/xml  # FierceBiotech - R&D, regulatory, M&A
   Cybersecurity:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/feed
+      - https://feeds.bloomberg.com/technology/news.rss
   Fintech & Payments:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/category/fintech/feed
+      - https://feeds.bloomberg.com/markets/news.rss
+      - https://feeds.a.dj.com/rss/RSSMarketsMain.xml
+      # Industry research publications (FREE)
+      - https://www.fintechnexus.com/fintech/feed  # Fintech Nexus - Industry news
+      # Podcasts - episode descriptions only
+      - https://feeds.simplecast.com/rh_8uLBO  # Dry Powder: Private Equity (Bain)
+      - https://investlikethebest.libsyn.com/rss  # Invest Like the Best
+      - https://feeds.transistor.fm/acquired  # Acquired (Ben Gilbert & David Rosenthal)
   Healthcare & Medical Devices:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
   Consumer & Retail:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
+      - https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml
+      # Podcasts - episode descriptions only
+      - https://www.omnycontent.com/d/playlist/708664bd-6843-4623-8066-aede00ce0c8a/3f6f52af-fba1-496d-b11b-af040139456a/bfe0b44a-082f-495a-952a-af0401394590/podcast.rss  # McKinsey Podcast
   Media & Streaming:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/feed
+      - https://feeds.bloomberg.com/technology/news.rss
   Crypto & Digital Assets:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/category/fintech/feed
+      - https://feeds.bloomberg.com/markets/news.rss
   AI Infrastructure & Data Centers:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/category/artificial-intelligence/feed
+      - https://feeds.bloomberg.com/technology/news.rss
   Robotics & Automation:
-    feeds: []
+    feeds:
+      - https://techcrunch.com/feed
+      - https://feeds.bloomberg.com/technology/news.rss
   Energy Storage:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
   Transportation & Logistics:
-    feeds: []
+    feeds:
+      - https://feeds.bloomberg.com/industries/news.rss
 
-# Per-company overrides. Most companies rely on the auto Google News query
-# (company name, quoted). Listed below are the ones that need a custom query
-# (private firms with no ticker, or names that are common English words) or a
-# dedicated RSS feed. Everything not listed here still gets covered via defaults.
+# Per-company RSS feeds. Only companies with verified RSS feeds are listed.
+# Companies not listed here won't get any news unless covered by industry-level feeds.
 companies:
   NVIDIA:
-    query: '"NVIDIA" OR NVDA'
     feeds:
       - https://nvidianews.nvidia.com/releases.xml
 
-  Tesla:
-    query: '"Tesla, Inc." OR TSLA'
-    feeds: []
-
   Meta Platforms:
-    query: '"Meta Platforms" OR "Meta stock" OR META'
-    feeds: []
-
-  Block:
-    query: '"Block Inc" OR "Block, Inc." OR "Square Block" OR XYZ'
-    feeds: []
-
-  Strategy:
-    query: '"MicroStrategy" OR "Strategy MSTR" OR MSTR'
-    feeds: []
+    feeds:
+      - https://about.fb.com/feed
+      - https://engineering.fb.com/feed
 
   Alphabet:
-    query: '"Alphabet Inc" OR "Google parent" OR GOOGL'
-    feeds: []
-
-  Taiwan Semiconductor:
-    query: '"Taiwan Semiconductor" OR TSMC OR "TSM stock"'
-    feeds: []
+    feeds:
+      - https://blog.google/feed/
 
   SpaceX:
-    query: '"SpaceX"'
-    feeds: []
+    feeds:
+      - https://www.spacex.com/news.xml
 
   OpenAI:
-    query: '"OpenAI"'
-    feeds: []
-
-  Anthropic:
-    query: '"Anthropic" AND (AI OR Claude OR startup)'
-    feeds: []
-
-  Anduril Industries:
-    query: '"Anduril"'
-    feeds: []
+    feeds:
+      - https://openai.com/news/rss.xml
 
   Stripe:
-    query: '"Stripe" AND (payments OR fintech OR valuation)'
-    feeds: []
+    feeds:
+      - https://stripe.com/blog/feed.rss
 
-  Form Energy:
-    query: '"Form Energy" AND (battery OR storage OR iron)'
-    feeds: []
-
-  # Private / pre-IPO companies — no ticker, so a tuned query keeps the noise down.
   Databricks:
-    query: '"Databricks"'
+    feeds:
+      - https://databricks.com/feed
+
+  Microsoft:
+    feeds:
+      - https://blogs.microsoft.com/feed
+      - https://news.microsoft.com/feed
+
+  Advanced Micro Devices:
+    feeds:
+      - https://ir.amd.com/news-events/press-releases/rss
+
+  Intel:
+    feeds:
+      - https://www.intc.com/news-events/press-releases/rss
+
+  Netflix:
+    feeds:
+      - https://ir.netflix.net/rss/PressRelease.aspx
+      - https://netflixtechblog.com/feed
+
+  PayPal:
+    feeds:
+      - https://newsroom.paypal-corp.com/index.php?rsspage=20290&s=20324
+
+  Lockheed Martin:
+    feeds:
+      - https://news.lockheedmartin.com/rss
+      - https://investors.lockheedmartin.com/rss-feeds/
+
+  Oracle:
+    feeds:
+      - https://www.oracle.com/corporate/rss/
+
+  Apple:
+    feeds:
+      - https://www.apple.com/newsroom/rss-feed.rss
+      - https://developer.apple.com/news/rss/news.rss
+
+  Amazon:
+    feeds:
+      - https://aws.amazon.com/blogs/aws/feed/
+
+  Salesforce:
+    feeds:
+      - https://investor.salesforce.com/rss/pressrelease.aspx
+
+  IBM:
+    feeds:
+      - https://newsroom.ibm.com/announcements?pagetemplate=rss
+
+  Cisco:
+    feeds:
+      - https://blogs.cisco.com/feed
+
+  Coinbase:
+    feeds:
+      - https://blog.coinbase.com/feed
+
+  # Financial companies - rely on industry-level feeds (podcasts + news)
+  Goldman Sachs:
     feeds: []
 
-  xAI:
-    query: '"xAI" AND (Musk OR Grok OR "artificial intelligence")'
+  Morgan Stanley:
     feeds: []
 
-  Scale AI:
-    query: '"Scale AI"'
+  JPMorgan Chase:
     feeds: []
 
-  Mistral AI:
-    query: '"Mistral AI"'
+  Bank of America:
     feeds: []
 
-  Figure AI:
-    query: '"Figure AI" OR "Figure robotics"'
+  Wells Fargo:
     feeds: []
 
-  Revolut:
-    query: '"Revolut"'
-    feeds: []
-
-  Plaid:
-    query: '"Plaid" AND (fintech OR banking OR API OR payments)'
+  Citigroup:
     feeds: []
