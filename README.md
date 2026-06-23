@@ -79,6 +79,42 @@ This sets up macOS launchd to run data collection every day at 9 AM. Works even 
 
 **Alternative options:** See `AUTOMATION.md` for cron setup, GitHub Actions, or cloud deployment.
 
+## View Your Data
+
+### Web Dashboard (Recommended)
+
+Visual, easy-to-use interface in your browser:
+
+```bash
+python dashboard.py
+```
+
+Then open: **http://localhost:8000**
+
+Features:
+- 📊 Live statistics (companies, industries, news, filings)
+- 🏭 Browse by industry
+- 🏢 View companies in each industry
+- 📰 Latest news articles by industry
+- 📄 Latest SEC filings by industry
+- Clean, modern UI
+
+### Command Line Tools
+
+```bash
+# Quick status check
+./check_status.sh
+
+# Interactive terminal browser
+./view_data.sh
+
+# Raw database stats
+python store.py --stats
+
+# Watch live collection logs
+tail -f scraper.log
+```
+
 ## Next Steps
 
 See `PLAN.md` for full roadmap to build equity research platform.
