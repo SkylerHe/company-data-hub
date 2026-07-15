@@ -49,10 +49,17 @@ def get_db(path: str = DB_PATH) -> sqlite3.Connection:
 def init_db(db: sqlite3.Connection) -> None:
     db.executescript(
         """
-        CREATE TABLE IF NOT EXISTS companies (
+        -- One row per tradable instrument: stock, ETF, fund, bond, commodity, crypto...
+        -- `asset_class` is WHAT it is; `fund_strategy` (index/active/NULL) is HOW a fund
+        -- is run (SPY = etf + index; ARKQ = etf + active; a stock = stock + NULL).
+        CREATE TABLE IF NOT EXISTS instruments (
             id                 INTEGER PRIMARY KEY,
             name               TEXT NOT NULL UNIQUE,
             ticker             TEXT,
+            asset_class        TEXT NOT NULL DEFAULT 'stock' REFERENCES asset_classes(name),
+            fund_strategy      TEXT,          -- 'index' | 'active' | NULL (only for funds)
+            currency           TEXT DEFAULT 'USD',
+            exchange           TEXT,
             sector             TEXT,
             meta               TEXT,          -- JSON: any extra fields from your input
             summary            TEXT,          -- distilled dossier (filled in later)
@@ -61,9 +68,25 @@ def init_db(db: sqlite3.Connection) -> None:
             created_at         TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS asset_classes (
+            id          INTEGER PRIMARY KEY,
+            name        TEXT NOT NULL UNIQUE,
+            description TEXT
+        );
+        INSERT OR IGNORE INTO asset_classes (name, description) VALUES
+            ('stock',     'Individual company common stock / ADR'),
+            ('etf',       'Exchange-traded fund'),
+            ('fund',      'Closed-end / interval / mutual fund'),
+            ('bond',      'Fixed income (bond fund or individual bond)'),
+            ('reit',      'Real estate investment trust'),
+            ('commodity', 'Commodity fund (gold, oil, ...)'),
+            ('crypto',    'Crypto asset / spot crypto fund'),
+            ('index',     'Index level (not directly tradable)'),
+            ('cash',      'Cash / money-market / T-bill');
+
         CREATE TABLE IF NOT EXISTS news (
             id           INTEGER PRIMARY KEY,
-            company_id   INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+            company_id   INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
             source       TEXT,
             url          TEXT,
             title        TEXT,
@@ -73,13 +96,29 @@ def init_db(db: sqlite3.Connection) -> None:
                                                --   can always pull the original back up.
                                                --   Never summarized or truncated here.
             fetched_at   TEXT,
-            UNIQUE(company_id, url)           -- same article can attach to >1 company
+            UNIQUE(company_id, url)           -- same article can attach to >1 instrument
         );
 
+        -- Dense daily OHLCV time-series. One row per (instrument, date) — NOT the tall
+        -- metrics table (that stored 5 EAV rows/day). Range queries are index-only scans.
+        CREATE TABLE IF NOT EXISTS prices (
+            instrument_id INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+            date          TEXT NOT NULL,      -- 'YYYY-MM-DD'
+            open          REAL,
+            high          REAL,
+            low           REAL,
+            close         REAL,
+            volume        REAL,
+            source        TEXT,
+            fetched_at    TEXT,
+            PRIMARY KEY (instrument_id, date)
+        );
+
+        -- Sparse fundamentals only (revenue, EPS, margins, ratios). Prices live in `prices`.
         CREATE TABLE IF NOT EXISTS metrics (
             id          INTEGER PRIMARY KEY,
-            company_id  INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-            metric      TEXT NOT NULL,        -- 'revenue', 'employees', 'pe_ratio', ...
+            company_id  INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+            metric      TEXT NOT NULL,        -- 'revenue', 'eps_ttm', 'pe_ratio', ...
             period      TEXT NOT NULL,        -- 'FY2025', '2025-Q4', '2026-06-15'
             value       REAL,
             unit        TEXT,                 -- 'USD', 'count', '%'
@@ -90,7 +129,7 @@ def init_db(db: sqlite3.Connection) -> None:
 
         CREATE TABLE IF NOT EXISTS filings (
             id          INTEGER PRIMARY KEY,
-            company_id  INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+            company_id  INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
             type        TEXT,                 -- '10-K', '8-K', 'earnings_call', ...
             url         TEXT,
             date        TEXT,
@@ -102,12 +141,18 @@ def init_db(db: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_news_company_date
             ON news(company_id, published_at);
-        CREATE INDEX IF NOT EXISTS idx_metrics_company
-            ON metrics(company_id, metric);
+        CREATE INDEX IF NOT EXISTS idx_prices_date
+            ON prices(date);
+        CREATE INDEX IF NOT EXISTS idx_metrics_company_metric_period
+            ON metrics(company_id, metric, period);
         CREATE INDEX IF NOT EXISTS idx_filings_company_date
             ON filings(company_id, date);
+        CREATE INDEX IF NOT EXISTS idx_instruments_ticker
+            ON instruments(ticker);
+        CREATE INDEX IF NOT EXISTS idx_instruments_asset_class
+            ON instruments(asset_class);
 
-        -- Industries: many-to-many, so one company can sit in several
+        -- Industries: many-to-many, so one instrument can sit in several
         -- (e.g. Tesla in Automotive + Energy + AI).
         CREATE TABLE IF NOT EXISTS industries (
             id   INTEGER PRIMARY KEY,
@@ -115,8 +160,8 @@ def init_db(db: sqlite3.Connection) -> None:
         );
 
         CREATE TABLE IF NOT EXISTS company_industries (
-            company_id  INTEGER NOT NULL REFERENCES companies(id)  ON DELETE CASCADE,
-            industry_id INTEGER NOT NULL REFERENCES industries(id) ON DELETE CASCADE,
+            company_id  INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+            industry_id INTEGER NOT NULL REFERENCES industries(id)  ON DELETE CASCADE,
             PRIMARY KEY (company_id, industry_id)
         );
 
@@ -130,25 +175,40 @@ def init_db(db: sqlite3.Connection) -> None:
 # ----------------------------------------------------------------------------
 # Companies
 # ----------------------------------------------------------------------------
-def upsert_company(db, name, ticker=None, sector=None, meta=None) -> int:
-    """Insert a company or update its fields if it already exists. Returns its id."""
+def upsert_company(db, name, ticker=None, sector=None, meta=None,
+                   asset_class=None, fund_strategy=None, currency=None, exchange=None) -> int:
+    """Insert an instrument or update its fields if it already exists. Returns its id.
+
+    `asset_class` (stock/etf/fund/bond/commodity/crypto/...) and `fund_strategy`
+    (index/active) classify what the instrument is; both default sensibly and only
+    overwrite existing values when explicitly passed."""
     db.execute(
         """
-        INSERT INTO companies (name, ticker, sector, meta, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO instruments (name, ticker, sector, meta, asset_class,
+                                 fund_strategy, currency, exchange, created_at)
+        VALUES (?, ?, ?, ?, COALESCE(?, 'stock'), ?, COALESCE(?, 'USD'), ?, ?)
         ON CONFLICT(name) DO UPDATE SET
-            ticker = COALESCE(excluded.ticker, companies.ticker),
-            sector = COALESCE(excluded.sector, companies.sector),
-            meta   = COALESCE(excluded.meta,   companies.meta)
+            ticker        = COALESCE(excluded.ticker,        instruments.ticker),
+            sector        = COALESCE(excluded.sector,        instruments.sector),
+            meta          = COALESCE(excluded.meta,          instruments.meta),
+            fund_strategy = COALESCE(excluded.fund_strategy, instruments.fund_strategy),
+            exchange      = COALESCE(excluded.exchange,      instruments.exchange)
         """,
-        (name, ticker, sector, json.dumps(meta) if meta else None, _now()),
+        (name, ticker, sector, json.dumps(meta) if meta else None,
+         asset_class, fund_strategy, currency, exchange, _now()),
     )
+    # asset_class/currency are only set on first insert (COALESCE default); update them
+    # explicitly when the caller passes a value, so reclassification is possible.
+    if asset_class is not None:
+        db.execute("UPDATE instruments SET asset_class=? WHERE name=?", (asset_class, name))
+    if currency is not None:
+        db.execute("UPDATE instruments SET currency=? WHERE name=?", (currency, name))
     db.commit()
     return company_id(db, name)
 
 
 def company_id(db, name, create=True):
-    row = db.execute("SELECT id FROM companies WHERE name = ?", (name,)).fetchone()
+    row = db.execute("SELECT id FROM instruments WHERE name = ?", (name,)).fetchone()
     if row:
         return row[0]
     if create:
@@ -239,7 +299,7 @@ def companies_in_industry(db, industry) -> list[str]:
         return []
     rows = db.execute(
         """
-        SELECT c.name FROM companies c
+        SELECT c.name FROM instruments c
         JOIN company_industries ci ON ci.company_id = c.id
         WHERE ci.industry_id = ? ORDER BY c.name
         """,
@@ -331,9 +391,38 @@ def add_news(db, company, source, url, title, published_at, content) -> int | No
     return cur.lastrowid if cur.rowcount else None
 
 
+# OHLCV metric names -> column in the wide `prices` table. Legacy scraper code calls
+# add_metric('price_close', ...); we transparently route those into `prices` so callers
+# don't change and price data never bloats the sparse `metrics` table again.
+_PRICE_FIELD = {
+    "price_open": "open", "price_high": "high", "price_low": "low",
+    "price_close": "close", "volume": "volume",
+}
+
+
 def add_metric(db, company, metric, period, value, unit=None, source=None) -> None:
-    """Add or update one numeric data point (long/tidy format)."""
+    """Add or update one numeric data point.
+
+    OHLCV metrics (price_open/high/low/close, volume) are routed to the wide `prices`
+    table; everything else (revenue, EPS, ratios, ...) stays in the tidy `metrics` table.
+    """
     cid = company_id(db, company)
+    field = _PRICE_FIELD.get(metric)
+    if field:
+        # period is the trade date ('YYYY-MM-DD'); upsert the one OHLCV column.
+        db.execute(
+            f"""
+            INSERT INTO prices (instrument_id, date, {field}, source, fetched_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(instrument_id, date) DO UPDATE SET
+                {field} = excluded.{field},
+                source  = COALESCE(excluded.source, prices.source),
+                fetched_at = excluded.fetched_at
+            """,
+            (cid, period, value, source, _now()),
+        )
+        db.commit()
+        return
     db.execute(
         """
         INSERT INTO metrics (company_id, metric, period, value, unit, source, fetched_at)
@@ -345,6 +434,39 @@ def add_metric(db, company, metric, period, value, unit=None, source=None) -> No
         (cid, metric, period, value, unit, source, _now()),
     )
     db.commit()
+
+
+def add_price(db, instrument, date, open=None, high=None, low=None, close=None,
+              volume=None, source=None) -> None:
+    """Upsert one day of OHLCV for an instrument into the wide `prices` table."""
+    iid = company_id(db, instrument)
+    db.execute(
+        """
+        INSERT INTO prices (instrument_id, date, open, high, low, close, volume, source, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(instrument_id, date) DO UPDATE SET
+            open=excluded.open, high=excluded.high, low=excluded.low,
+            close=excluded.close, volume=excluded.volume,
+            source=excluded.source, fetched_at=excluded.fetched_at
+        """,
+        (iid, date, open, high, low, close, volume, source, _now()),
+    )
+    db.commit()
+
+
+def get_prices(db, instrument, start=None, end=None, field="close"):
+    """Return [(date, value), ...] for one price field, optionally within [start, end]."""
+    iid = company_id(db, instrument, create=False)
+    if iid is None:
+        return []
+    q = f"SELECT date, {field} FROM prices WHERE instrument_id=?"
+    args = [iid]
+    if start:
+        q += " AND date >= ?"; args.append(start)
+    if end:
+        q += " AND date <= ?"; args.append(end)
+    q += " ORDER BY date"
+    return db.execute(q, args).fetchall()
 
 
 def add_filing(db, company, type, url, date, title, content) -> int | None:
@@ -366,7 +488,7 @@ def set_summary(db, company, summary) -> None:
     """Store the distilled per-company dossier (populated later, by enrichment)."""
     cid = company_id(db, company)
     db.execute(
-        "UPDATE companies SET summary = ?, summary_updated_at = ? WHERE id = ?",
+        "UPDATE instruments SET summary = ?, summary_updated_at = ? WHERE id = ?",
         (summary, _now(), cid),
     )
     db.commit()
@@ -379,14 +501,14 @@ def get_last_fetched(db, company):
     cid = company_id(db, company, create=False)
     if cid is None:
         return None
-    row = db.execute("SELECT last_fetched FROM companies WHERE id = ?", (cid,)).fetchone()
+    row = db.execute("SELECT last_fetched FROM instruments WHERE id = ?", (cid,)).fetchone()
     return row[0] if row else None
 
 
 def set_last_fetched(db, company, when=None) -> None:
     cid = company_id(db, company)
     db.execute(
-        "UPDATE companies SET last_fetched = ? WHERE id = ?",
+        "UPDATE instruments SET last_fetched = ? WHERE id = ?",
         (when or _now(), cid),
     )
     db.commit()
@@ -433,11 +555,18 @@ def show_news(db, url=None, news_id=None) -> None:
 def stats(db) -> None:
     counts = {
         t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-        for t in ("companies", "industries", "news", "metrics", "filings")
+        for t in ("instruments", "industries", "news", "prices", "metrics", "filings")
     }
     print("Row counts:")
     for t, c in counts.items():
-        print(f"  {t:<12} {c}")
+        print(f"  {t:<12} {c:,}")
+
+    ac_rows = db.execute(
+        "SELECT asset_class, COUNT(*) FROM instruments GROUP BY asset_class ORDER BY 2 DESC"
+    ).fetchall()
+    print("\nInstruments by asset_class:")
+    for ac, n in ac_rows:
+        print(f"  {ac:<12} {n}")
 
     ind_rows = db.execute(
         """
@@ -459,7 +588,7 @@ def stats(db) -> None:
                (SELECT COUNT(*) FROM metrics m WHERE m.company_id = c.id),
                (SELECT COUNT(*) FROM filings f WHERE f.company_id = c.id),
                c.last_fetched
-        FROM companies c
+        FROM instruments c
         ORDER BY c.name
         """
     ).fetchall()

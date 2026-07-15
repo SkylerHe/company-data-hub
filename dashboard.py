@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Simple web dashboard to view collected company data.
-Run with: python dashboard.py
+Redesigned dashboard focused on insights and readability.
+Run with: python dashboard_v2.py
 Then open: http://localhost:8000
 """
 
 import sqlite3
-from datetime import datetime, timedelta
+import json
+import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
-import json
 
 DB_PATH = "finance.db"
 
@@ -20,9 +20,38 @@ def get_db():
     return db
 
 
+def summarize_text(text, max_paragraphs=2):
+    """Extract first 1-2 paragraphs as insightful summary (where, why, how, who, what)."""
+    if not text:
+        return "No content available"
+
+    # Clean up text
+    text = text.strip()
+
+    # Try to split by paragraphs first
+    paragraphs = re.split(r'\n\s*\n', text)
+
+    # If no clear paragraphs, fall back to sentences
+    if len(paragraphs) == 1:
+        sentences = re.split(r'[.!?]+\s+', text)
+        # Take 5-8 sentences for a meaningful summary
+        summary_sentences = sentences[:8]
+        summary = '. '.join(s for s in summary_sentences if s.strip())
+        if summary and not summary.endswith('.'):
+            summary += '.'
+    else:
+        # Take first 1-2 paragraphs
+        summary = '\n\n'.join(paragraphs[:max_paragraphs])
+
+    # Limit to reasonable length (1500 chars for 1-2 paragraphs)
+    if len(summary) > 1500:
+        summary = summary[:1500] + "..."
+
+    return summary
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        # Suppress default logging
         pass
 
     def do_GET(self):
@@ -30,18 +59,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == '/':
             self.serve_html()
-        elif parsed.path == '/api/stats':
-            self.serve_stats()
         elif parsed.path == '/api/industries':
             self.serve_industries()
-        elif parsed.path == '/api/companies':
-            self.serve_companies(parsed.query)
-        elif parsed.path == '/api/news':
-            self.serve_news(parsed.query)
-        elif parsed.path == '/api/filings':
-            self.serve_filings(parsed.query)
-        elif parsed.path == '/api/timeline':
-            self.serve_timeline()
+        elif parsed.path == '/api/content':
+            self.serve_content(parsed.query)
         else:
             self.send_error(404)
 
@@ -50,545 +71,282 @@ class DashboardHandler(BaseHTTPRequestHandler):
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Company Data Hub - Dashboard</title>
+    <title>Research</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f5f5f7;
-            color: #1d1d1f;
+            background: #fafafa;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
             padding: 20px;
         }
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        h1 { font-size: 32px; font-weight: 600; margin-bottom: 10px; }
-        .subtitle { color: #6e6e73; font-size: 16px; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .stat-card {
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 240px;
+            height: 100vh;
             background: white;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            padding: 20px;
         }
-        .stat-number {
-            font-size: 36px;
-            font-weight: 600;
-            color: #0071e3;
-            margin-bottom: 8px;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #6e6e73;
+
+        .sidebar h3 {
+            font-size: 13px;
+            color: #666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-
-        .content-grid {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
-        }
-
-        .sidebar {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            max-height: calc(100vh - 300px);
-            overflow-y: auto;
-        }
-        .sidebar h2 {
-            font-size: 18px;
             margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e5e5e7;
+            font-weight: 600;
+        }
+
+        .industry-list {
+            list-style: none;
         }
 
         .industry-item {
-            padding: 12px;
-            margin-bottom: 8px;
-            background: #f5f5f7;
-            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
             transition: all 0.2s;
+            color: #333;
         }
+
         .industry-item:hover {
-            background: #e8e8ed;
-            transform: translateX(4px);
+            background: #f5f5f5;
         }
+
         .industry-item.active {
-            background: #0071e3;
+            background: #0066cc;
             color: white;
         }
-        .industry-name {
-            font-weight: 500;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
+
         .industry-count {
             font-size: 12px;
-            opacity: 0.7;
+            opacity: 0.6;
+            margin-left: 4px;
         }
 
-        .main-content {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            max-height: calc(100vh - 300px);
-            overflow-y: auto;
-        }
-        .main-content h2 {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-
-        .company-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .company-card {
-            padding: 16px;
-            background: #f5f5f7;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .company-card:hover {
-            background: #e8e8ed;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .company-name {
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .company-stats {
-            font-size: 12px;
-            color: #6e6e73;
-        }
-
-        .timeline {
-            margin-top: 30px;
-        }
-        .timeline-item {
-            padding: 16px;
-            margin-bottom: 12px;
-            background: #f5f5f7;
-            border-radius: 8px;
-            border-left: 4px solid #0071e3;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .timeline-item:hover {
-            background: #e8e8ed;
-            transform: translateX(4px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .timeline-date {
-            font-size: 12px;
-            color: #6e6e73;
-            margin-bottom: 4px;
-        }
-        .timeline-title {
-            font-weight: 500;
-            margin-bottom: 4px;
-            color: #0071e3;
-        }
-        .timeline-source {
-            font-size: 12px;
-            color: #6e6e73;
-        }
-
-        /* Modal for article view */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            overflow-y: auto;
-        }
-        .modal.show {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Main content */
+        .main {
+            margin-left: 260px;
             padding: 20px;
         }
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            max-width: 800px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 30px;
-            position: relative;
-        }
-        .modal-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: #f5f5f7;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 32px;
-            text-align: center;
-            transition: all 0.2s;
-        }
-        .modal-close:hover {
-            background: #e8e8ed;
-        }
-        .modal-header {
+
+        .breadcrumb {
+            font-size: 13px;
+            color: #666;
             margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e5e5e7;
         }
-        .modal-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 10px;
+
+        .breadcrumb span {
+            color: #333;
+            font-weight: 500;
         }
-        .modal-meta {
-            font-size: 14px;
-            color: #6e6e73;
+
+        /* Content cards */
+        .content-list {
+            display: grid;
+            gap: 20px;
         }
-        .modal-body {
-            line-height: 1.6;
-            font-size: 16px;
-            white-space: pre-wrap;
-        }
-        .external-link {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #0071e3;
-            color: white;
-            text-decoration: none;
+
+        .content-card {
+            background: white;
             border-radius: 8px;
-            transition: all 0.2s;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-left: 3px solid #0066cc;
+            margin-bottom: 20px;
         }
-        .external-link:hover {
-            background: #0077ed;
+
+        .content-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #666;
         }
-        .filing-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            background: #0071e3;
+
+        .badge {
+            background: #0066cc;
             color: white;
+            padding: 3px 8px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 600;
-            margin-right: 8px;
+            text-transform: uppercase;
         }
 
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #e5e5e7;
-            padding-bottom: 10px;
-        }
-        .tab {
-            padding: 8px 16px;
-            background: none;
-            border: none;
-            font-size: 14px;
+        .badge.news { background: #0066cc; }
+        .badge.filing-10k { background: #d14343; }
+        .badge.filing-10q { background: #f59e0b; }
+        .badge.filing-8k { background: #10b981; }
+
+        .company-tag {
+            background: #f0f0f0;
+            color: #555;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 12px;
             font-weight: 500;
-            cursor: pointer;
-            color: #6e6e73;
-            border-radius: 6px;
-            transition: all 0.2s;
         }
-        .tab:hover {
-            background: #f5f5f7;
+
+        .content-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            line-height: 1.4;
         }
-        .tab.active {
-            background: #0071e3;
-            color: white;
+
+        .content-title a {
+            color: #0066cc;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .content-title a:hover {
+            color: #0052a3;
+            text-decoration: underline;
+        }
+
+        .content-summary {
+            color: #333;
+            font-size: 15px;
+            line-height: 1.7;
+            margin-bottom: 0;
+            white-space: pre-wrap;
         }
 
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #6e6e73;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
         }
 
         @media (max-width: 768px) {
-            .content-grid {
-                grid-template-columns: 1fr;
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
             }
-            .company-grid {
-                grid-template-columns: 1fr;
+            .main {
+                margin-left: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📊 Company Data Hub</h1>
-        <div class="subtitle">Real-time equity research data collection system</div>
+    <div class="sidebar">
+        <h3>Industries</h3>
+        <ul class="industry-list" id="industries">
+            <li class="loading">Loading...</li>
+        </ul>
     </div>
 
-    <div class="stats-grid" id="stats">
-        <div class="loading">Loading statistics...</div>
-    </div>
-
-    <div class="content-grid">
-        <div class="sidebar">
-            <h2>Industries</h2>
-            <div id="industries">
-                <div class="loading">Loading...</div>
-            </div>
+    <div class="main">
+        <div class="breadcrumb">
+            <span id="current-industry">Select an industry</span>
         </div>
 
-        <div class="main-content">
-            <div class="tabs">
-                <button class="tab active" onclick="showTab('companies')">Companies</button>
-                <button class="tab" onclick="showTab('news')">Latest News</button>
-                <button class="tab" onclick="showTab('filings')">Latest Filings</button>
+        <div class="content-list" id="content">
+            <div class="empty-state">
+                <div class="empty-state-icon">📊</div>
+                <div>Select an industry to view research content</div>
             </div>
-
-            <div id="tab-content">
-                <div class="loading">Select an industry to view companies</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for viewing full content -->
-    <div class="modal" id="content-modal">
-        <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">×</button>
-            <div class="modal-header">
-                <h2 class="modal-title" id="modal-title"></h2>
-                <div class="modal-meta" id="modal-meta"></div>
-            </div>
-            <div class="modal-body" id="modal-body"></div>
-            <a href="#" class="external-link" id="modal-link" target="_blank">View Original →</a>
         </div>
     </div>
 
     <script>
-        let selectedIndustry = null;
-        let currentTab = 'companies';
-
-        async function loadStats() {
-            const res = await fetch('/api/stats');
-            const stats = await res.json();
-
-            document.getElementById('stats').innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-number">${stats.companies}</div>
-                    <div class="stat-label">Companies</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${stats.industries}</div>
-                    <div class="stat-label">Industries</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${stats.news}</div>
-                    <div class="stat-label">News Articles</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${stats.filings}</div>
-                    <div class="stat-label">SEC Filings</div>
-                </div>
-            `;
-        }
+        let currentData = [];
 
         async function loadIndustries() {
             const res = await fetch('/api/industries');
             const industries = await res.json();
 
             document.getElementById('industries').innerHTML = industries.map(ind => `
-                <div class="industry-item" onclick="selectIndustry('${ind.name}')">
-                    <div class="industry-name">${ind.name}</div>
-                    <div class="industry-count">${ind.company_count} companies • ${ind.total_items} items</div>
-                </div>
+                <li class="industry-item" onclick="selectIndustry('${ind.name}', event)">
+                    ${ind.name}
+                    <span class="industry-count">(${ind.total_items})</span>
+                </li>
             `).join('');
         }
 
-        function selectIndustry(industry) {
-            selectedIndustry = industry;
-
+        async function selectIndustry(industry, event) {
             // Update active state
-            document.querySelectorAll('.industry-item').forEach(el => {
-                el.classList.remove('active');
-            });
-            event.target.closest('.industry-item').classList.add('active');
-
-            // Load content based on current tab
-            if (currentTab === 'companies') {
-                loadCompanies(industry);
-            } else if (currentTab === 'news') {
-                loadNews(industry);
-            } else if (currentTab === 'filings') {
-                loadFilings(industry);
-            }
-        }
-
-        async function loadCompanies(industry) {
-            document.getElementById('tab-content').innerHTML = '<div class="loading">Loading companies...</div>';
-
-            const res = await fetch(`/api/companies?industry=${encodeURIComponent(industry)}`);
-            const companies = await res.json();
-
-            document.getElementById('tab-content').innerHTML = `
-                <h2>${industry}</h2>
-                <div class="company-grid">
-                    ${companies.map(c => `
-                        <div class="company-card">
-                            <div class="company-name">${c.name}</div>
-                            <div class="company-stats">
-                                ${c.ticker ? `<span>${c.ticker}</span> • ` : ''}
-                                ${c.news_count} news • ${c.filing_count} filings
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        async function loadNews(industry) {
-            document.getElementById('tab-content').innerHTML = '<div class="loading">Loading news...</div>';
-
-            const res = await fetch(`/api/news?industry=${encodeURIComponent(industry)}`);
-            const news = await res.json();
-
-            document.getElementById('tab-content').innerHTML = `
-                <h2>Latest News - ${industry}</h2>
-                <div class="timeline">
-                    ${news.map((item, idx) => `
-                        <div class="timeline-item" onclick="viewArticle(${idx}, 'news')">
-                            <div class="timeline-date">${item.published_at} • ${item.company}</div>
-                            <div class="timeline-title">${item.title}</div>
-                            <div class="timeline-source">${item.source || 'Unknown source'}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            // Store news data for modal access
-            window.currentNews = news;
-        }
-
-        async function loadFilings(industry) {
-            document.getElementById('tab-content').innerHTML = '<div class="loading">Loading filings...</div>';
-
-            const res = await fetch(`/api/filings?industry=${encodeURIComponent(industry)}`);
-            const filings = await res.json();
-
-            document.getElementById('tab-content').innerHTML = `
-                <h2>Latest SEC Filings - ${industry}</h2>
-                <div class="timeline">
-                    ${filings.map((item, idx) => `
-                        <div class="timeline-item" onclick="viewArticle(${idx}, 'filing')">
-                            <div class="timeline-date">${item.date} • ${item.company}</div>
-                            <div class="timeline-title">
-                                <span class="filing-badge">${item.type}</span>
-                                ${item.title}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            // Store filings data for modal access
-            window.currentFilings = filings;
-        }
-
-        function showTab(tab) {
-            currentTab = tab;
-
-            // Update active tab
-            document.querySelectorAll('.tab').forEach(el => {
-                el.classList.remove('active');
-            });
+            document.querySelectorAll('.industry-item').forEach(el => el.classList.remove('active'));
             event.target.classList.add('active');
 
+            // Update breadcrumb
+            document.getElementById('current-industry').textContent = industry;
+
             // Load content
-            if (!selectedIndustry) {
-                document.getElementById('tab-content').innerHTML = '<div class="loading">Select an industry first</div>';
+            document.getElementById('content').innerHTML = '<div class="loading">Loading content...</div>';
+
+            const res = await fetch(`/api/content?industry=${encodeURIComponent(industry)}`);
+            const data = await res.json();
+            currentData = data;
+
+            if (data.length === 0) {
+                document.getElementById('content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>No content available for this industry yet</div>
+                    </div>
+                `;
                 return;
             }
 
-            if (tab === 'companies') {
-                loadCompanies(selectedIndustry);
-            } else if (tab === 'news') {
-                loadNews(selectedIndustry);
-            } else if (tab === 'filings') {
-                loadFilings(selectedIndustry);
-            }
+            document.getElementById('content').innerHTML = data.map((item, idx) => {
+                const badgeClass = item.type === 'news' ? 'news' :
+                                  item.filing_type === '10-K' ? 'filing-10k' :
+                                  item.filing_type === '10-Q' ? 'filing-10q' : 'filing-8k';
+
+                const badgeText = item.type === 'news' ? 'News' : item.filing_type;
+
+                return `
+                    <div class="content-card">
+                        <div class="content-meta">
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                            <span class="company-tag">${item.company}</span>
+                            <span>${item.date}</span>
+                            ${item.source ? `<span>•</span><span>${item.source}</span>` : ''}
+                        </div>
+                        <div class="content-title">
+                            <a href="${item.url}" target="_blank">${item.title}</a>
+                        </div>
+                        <div class="content-summary">${item.summary}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        function viewArticle(index, type) {
-            let item;
-            if (type === 'news') {
-                item = window.currentNews[index];
-                document.getElementById('modal-title').textContent = item.title;
-                document.getElementById('modal-meta').textContent = `${item.company} • ${item.source || 'Unknown'} • ${item.published_at}`;
-                document.getElementById('modal-body').textContent = item.content || 'No content available';
-                document.getElementById('modal-link').href = item.url;
-            } else if (type === 'filing') {
-                item = window.currentFilings[index];
-                document.getElementById('modal-title').textContent = item.title;
-                document.getElementById('modal-meta').textContent = `${item.company} • ${item.type} • ${item.date}`;
-                document.getElementById('modal-body').textContent = item.content || 'Loading...';
-                document.getElementById('modal-link').href = item.url;
-
-                // Fetch full filing content if not loaded
-                if (!item.content) {
-                    fetch(`/api/filing-content?url=${encodeURIComponent(item.url)}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            document.getElementById('modal-body').textContent = data.content || 'No content available';
-                        });
-                }
-            }
-
-            document.getElementById('content-modal').classList.add('show');
-        }
-
-        function closeModal() {
-            document.getElementById('content-modal').classList.remove('show');
-        }
-
-        // Close modal when clicking outside
-        document.getElementById('content-modal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
-
-        // Close modal with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-            }
-        });
-
-        // Load initial data
-        loadStats();
         loadIndustries();
     </script>
 </body>
@@ -598,16 +356,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/html')
         self.end_headers()
         self.wfile.write(html.encode())
-
-    def serve_stats(self):
-        db = get_db()
-        stats = {
-            'companies': db.execute('SELECT COUNT(*) FROM companies').fetchone()[0],
-            'industries': db.execute('SELECT COUNT(*) FROM industries').fetchone()[0],
-            'news': db.execute('SELECT COUNT(*) FROM news').fetchone()[0],
-            'filings': db.execute('SELECT COUNT(*) FROM filings').fetchone()[0],
-        }
-        self.send_json(stats)
 
     def serve_industries(self):
         db = get_db()
@@ -630,92 +378,69 @@ class DashboardHandler(BaseHTTPRequestHandler):
         industries = [dict(row) for row in rows]
         self.send_json(industries)
 
-    def serve_companies(self, query):
+    def serve_content(self, query):
         params = parse_qs(query)
         industry = params.get('industry', [''])[0]
 
         db = get_db()
-        rows = db.execute("""
+
+        # Get news
+        news = db.execute("""
             SELECT
-                c.name,
-                c.ticker,
-                COUNT(DISTINCT n.id) as news_count,
-                COUNT(DISTINCT f.id) as filing_count
-            FROM companies c
-            JOIN company_industries ci ON c.id = ci.company_id
-            JOIN industries i ON ci.industry_id = i.id
-            LEFT JOIN news n ON c.id = n.company_id
-            LEFT JOIN filings f ON c.id = f.company_id
-            WHERE i.name = ?
-            GROUP BY c.id
-            ORDER BY c.name
-        """, (industry,)).fetchall()
-
-        companies = [dict(row) for row in rows]
-        self.send_json(companies)
-
-    def serve_news(self, query):
-        params = parse_qs(query)
-        industry = params.get('industry', [''])[0]
-
-        db = get_db()
-        rows = db.execute("""
-            SELECT
+                'news' as type,
                 c.name as company,
                 n.title,
                 n.source,
-                n.published_at,
+                n.published_at as date,
                 n.url,
-                n.content
+                n.content,
+                NULL as filing_type
             FROM news n
             JOIN companies c ON n.company_id = c.id
             JOIN company_industries ci ON c.id = ci.company_id
             JOIN industries i ON ci.industry_id = i.id
             WHERE i.name = ?
             ORDER BY n.published_at DESC
-            LIMIT 50
+            LIMIT 30
         """, (industry,)).fetchall()
 
-        news = [dict(row) for row in rows]
-        self.send_json(news)
-
-    def serve_filings(self, query):
-        params = parse_qs(query)
-        industry = params.get('industry', [''])[0]
-
-        db = get_db()
-        rows = db.execute("""
+        # Get filings
+        filings = db.execute("""
             SELECT
+                'filing' as type,
                 c.name as company,
-                f.type,
                 f.title,
+                NULL as source,
                 f.date,
                 f.url,
-                SUBSTR(f.content, 1, 5000) as content
+                f.content,
+                f.type as filing_type
             FROM filings f
             JOIN companies c ON f.company_id = c.id
             JOIN company_industries ci ON c.id = ci.company_id
             JOIN industries i ON ci.industry_id = i.id
             WHERE i.name = ?
             ORDER BY f.date DESC
-            LIMIT 50
+            LIMIT 30
         """, (industry,)).fetchall()
 
-        filings = [dict(row) for row in rows]
-        self.send_json(filings)
+        # Combine and sort
+        all_content = []
 
-    def serve_timeline(self):
-        db = get_db()
-        rows = db.execute("""
-            SELECT date(fetched_at) as date, COUNT(*) as count
-            FROM news
-            GROUP BY date
-            ORDER BY date DESC
-            LIMIT 30
-        """).fetchall()
+        for row in news:
+            item = dict(row)
+            item['summary'] = summarize_text(item.get('content', ''))
+            all_content.append(item)
 
-        timeline = [dict(row) for row in rows]
-        self.send_json(timeline)
+        for row in filings:
+            item = dict(row)
+            item['summary'] = summarize_text(item.get('content', ''))
+            all_content.append(item)
+
+        # Sort by date
+        all_content.sort(key=lambda x: x['date'] or '', reverse=True)
+
+        self.send_json(all_content)
 
     def send_json(self, data):
         self.send_response(200)
@@ -728,22 +453,17 @@ def main():
     PORT = 8000
     server = HTTPServer(('localhost', PORT), DashboardHandler)
     print(f"""
-╔════════════════════════════════════════════════════════════╗
-║                                                            ║
-║   📊  COMPANY DATA HUB DASHBOARD                          ║
-║                                                            ║
-║   Dashboard is running at:                                ║
-║   👉  http://localhost:{PORT}                                ║
-║                                                            ║
-║   Press Ctrl+C to stop the server                         ║
-║                                                            ║
-╚════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════╗
+║  Research Dashboard                       ║
+║  http://localhost:{PORT}                     ║
+║  Press Ctrl+C to stop                     ║
+╚═══════════════════════════════════════════╝
     """)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n\n✓ Dashboard stopped")
+        print("\n✓ Stopped")
         server.shutdown()
 
 

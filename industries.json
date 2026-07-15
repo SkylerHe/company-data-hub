@@ -1,265 +1,985 @@
 {
   "Semiconductors": {
     "companies": [
-      {"name": "NVIDIA", "ticker": "NVDA"},
-      {"name": "Taiwan Semiconductor", "ticker": "TSM"},
-      {"name": "Advanced Micro Devices", "ticker": "AMD"},
-      {"name": "Intel", "ticker": "INTC"},
-      {"name": "Broadcom", "ticker": "AVGO"},
-      {"name": "Qualcomm", "ticker": "QCOM"},
-      {"name": "ASML", "ticker": "ASML"},
-      {"name": "Micron Technology", "ticker": "MU"},
-      {"name": "Arm Holdings", "ticker": "ARM"},
-      {"name": "Applied Materials", "ticker": "AMAT"}
+      {
+        "name": "NVIDIA",
+        "ticker": "NVDA"
+      },
+      {
+        "name": "Taiwan Semiconductor",
+        "ticker": "TSM"
+      },
+      {
+        "name": "Advanced Micro Devices",
+        "ticker": "AMD"
+      },
+      {
+        "name": "Intel",
+        "ticker": "INTC"
+      },
+      {
+        "name": "Broadcom",
+        "ticker": "AVGO"
+      },
+      {
+        "name": "Qualcomm",
+        "ticker": "QCOM"
+      },
+      {
+        "name": "ASML",
+        "ticker": "ASML"
+      },
+      {
+        "name": "Micron Technology",
+        "ticker": "MU"
+      },
+      {
+        "name": "Arm Holdings",
+        "ticker": "ARM"
+      },
+      {
+        "name": "Applied Materials",
+        "ticker": "AMAT"
+      },
+      {
+        "name": "VanEck Semiconductor ETF",
+        "ticker": "SMH",
+        "etf": true
+      }
     ]
   },
   "Artificial Intelligence": {
     "companies": [
-      {"name": "NVIDIA", "ticker": "NVDA"},
-      {"name": "Microsoft", "ticker": "MSFT"},
-      {"name": "Alphabet", "ticker": "GOOGL"},
-      {"name": "Meta Platforms", "ticker": "META"},
-      {"name": "Amazon", "ticker": "AMZN"},
-      {"name": "Palantir Technologies", "ticker": "PLTR"},
-      {"name": "Advanced Micro Devices", "ticker": "AMD"},
-      {"name": "Tesla", "ticker": "TSLA"},
-      {"name": "OpenAI", "private": true},
-      {"name": "Anthropic", "private": true},
-      {"name": "xAI", "private": true},
-      {"name": "Databricks", "private": true},
-      {"name": "Scale AI", "private": true},
-      {"name": "Mistral AI", "private": true}
+      {
+        "name": "NVIDIA",
+        "ticker": "NVDA"
+      },
+      {
+        "name": "Microsoft",
+        "ticker": "MSFT"
+      },
+      {
+        "name": "Alphabet",
+        "ticker": "GOOGL"
+      },
+      {
+        "name": "Meta Platforms",
+        "ticker": "META"
+      },
+      {
+        "name": "Amazon",
+        "ticker": "AMZN"
+      },
+      {
+        "name": "Palantir Technologies",
+        "ticker": "PLTR"
+      },
+      {
+        "name": "Advanced Micro Devices",
+        "ticker": "AMD"
+      },
+      {
+        "name": "Tesla",
+        "ticker": "TSLA"
+      },
+      {
+        "name": "Global X Artificial Intelligence & Tech ETF",
+        "ticker": "AIQ",
+        "etf": true
+      }
     ]
   },
   "Automotive": {
     "companies": [
-      {"name": "Tesla", "ticker": "TSLA"},
-      {"name": "Toyota Motor", "ticker": "TM"},
-      {"name": "Ford Motor", "ticker": "F"},
-      {"name": "General Motors", "ticker": "GM"},
-      {"name": "Volkswagen", "ticker": "VWAGY"},
-      {"name": "BYD", "ticker": "BYDDY"},
-      {"name": "Rivian Automotive", "ticker": "RIVN"},
-      {"name": "Stellantis", "ticker": "STLA"},
-      {"name": "Mercedes-Benz Group", "ticker": "MBGYY"},
-      {"name": "Ferrari", "ticker": "RACE"}
+      {
+        "name": "Tesla",
+        "ticker": "TSLA"
+      },
+      {
+        "name": "Toyota Motor",
+        "ticker": "TM"
+      },
+      {
+        "name": "Ford Motor",
+        "ticker": "F"
+      },
+      {
+        "name": "General Motors",
+        "ticker": "GM"
+      },
+      {
+        "name": "Volkswagen",
+        "ticker": "VWAGY"
+      },
+      {
+        "name": "BYD",
+        "ticker": "BYDDY"
+      },
+      {
+        "name": "Rivian Automotive",
+        "ticker": "RIVN"
+      },
+      {
+        "name": "Stellantis",
+        "ticker": "STLA"
+      },
+      {
+        "name": "Mercedes-Benz Group",
+        "ticker": "MBGYY"
+      },
+      {
+        "name": "Ferrari",
+        "ticker": "RACE"
+      },
+      {
+        "name": "First Trust Future Vehicles & Tech ETF",
+        "ticker": "CARZ",
+        "etf": true
+      }
     ]
   },
   "Energy": {
     "companies": [
-      {"name": "ExxonMobil", "ticker": "XOM"},
-      {"name": "Chevron", "ticker": "CVX"},
-      {"name": "Shell", "ticker": "SHEL"},
-      {"name": "ConocoPhillips", "ticker": "COP"},
-      {"name": "NextEra Energy", "ticker": "NEE"},
-      {"name": "Constellation Energy", "ticker": "CEG"},
-      {"name": "First Solar", "ticker": "FSLR"},
-      {"name": "Enphase Energy", "ticker": "ENPH"},
-      {"name": "Tesla", "ticker": "TSLA"},
-      {"name": "BP", "ticker": "BP"}
+      {
+        "name": "ExxonMobil",
+        "ticker": "XOM"
+      },
+      {
+        "name": "Chevron",
+        "ticker": "CVX"
+      },
+      {
+        "name": "Shell",
+        "ticker": "SHEL"
+      },
+      {
+        "name": "ConocoPhillips",
+        "ticker": "COP"
+      },
+      {
+        "name": "NextEra Energy",
+        "ticker": "NEE"
+      },
+      {
+        "name": "Constellation Energy",
+        "ticker": "CEG"
+      },
+      {
+        "name": "First Solar",
+        "ticker": "FSLR"
+      },
+      {
+        "name": "Enphase Energy",
+        "ticker": "ENPH"
+      },
+      {
+        "name": "Tesla",
+        "ticker": "TSLA"
+      },
+      {
+        "name": "BP",
+        "ticker": "BP"
+      },
+      {
+        "name": "Energy Select Sector SPDR",
+        "ticker": "XLE",
+        "etf": true
+      }
     ]
   },
   "Aerospace": {
     "companies": [
-      {"name": "Boeing", "ticker": "BA"},
-      {"name": "Airbus", "ticker": "EADSY"},
-      {"name": "GE Aerospace", "ticker": "GE"},
-      {"name": "Honeywell International", "ticker": "HON"},
-      {"name": "RTX", "ticker": "RTX"},
-      {"name": "Lockheed Martin", "ticker": "LMT"},
-      {"name": "SpaceX", "private": true},
-      {"name": "Rocket Lab", "ticker": "RKLB"}
+      {
+        "name": "Boeing",
+        "ticker": "BA"
+      },
+      {
+        "name": "Airbus",
+        "ticker": "EADSY"
+      },
+      {
+        "name": "GE Aerospace",
+        "ticker": "GE"
+      },
+      {
+        "name": "Honeywell International",
+        "ticker": "HON"
+      },
+      {
+        "name": "RTX",
+        "ticker": "RTX"
+      },
+      {
+        "name": "Lockheed Martin",
+        "ticker": "LMT"
+      },
+      {
+        "name": "Rocket Lab",
+        "ticker": "RKLB"
+      },
+      {
+        "name": "SpaceX",
+        "ticker": "SPCX"
+      },
+      {
+        "name": "iShares U.S. Aerospace & Defense ETF",
+        "ticker": "ITA",
+        "etf": true
+      }
     ]
   },
   "Defense & Space": {
     "companies": [
-      {"name": "Lockheed Martin", "ticker": "LMT"},
-      {"name": "RTX", "ticker": "RTX"},
-      {"name": "Northrop Grumman", "ticker": "NOC"},
-      {"name": "General Dynamics", "ticker": "GD"},
-      {"name": "L3Harris Technologies", "ticker": "LHX"},
-      {"name": "Boeing", "ticker": "BA"},
-      {"name": "Palantir Technologies", "ticker": "PLTR"},
-      {"name": "SpaceX", "private": true},
-      {"name": "Rocket Lab", "ticker": "RKLB"},
-      {"name": "Anduril Industries", "private": true}
+      {
+        "name": "Lockheed Martin",
+        "ticker": "LMT"
+      },
+      {
+        "name": "RTX",
+        "ticker": "RTX"
+      },
+      {
+        "name": "Northrop Grumman",
+        "ticker": "NOC"
+      },
+      {
+        "name": "General Dynamics",
+        "ticker": "GD"
+      },
+      {
+        "name": "L3Harris Technologies",
+        "ticker": "LHX"
+      },
+      {
+        "name": "Boeing",
+        "ticker": "BA"
+      },
+      {
+        "name": "Palantir Technologies",
+        "ticker": "PLTR"
+      },
+      {
+        "name": "Rocket Lab",
+        "ticker": "RKLB"
+      },
+      {
+        "name": "SpaceX",
+        "ticker": "SPCX"
+      },
+      {
+        "name": "SPDR S&P Aerospace & Defense ETF",
+        "ticker": "XAR",
+        "etf": true
+      }
     ]
   },
   "Cloud & Software": {
     "companies": [
-      {"name": "Microsoft", "ticker": "MSFT"},
-      {"name": "Amazon", "ticker": "AMZN"},
-      {"name": "Alphabet", "ticker": "GOOGL"},
-      {"name": "Oracle", "ticker": "ORCL"},
-      {"name": "Salesforce", "ticker": "CRM"},
-      {"name": "ServiceNow", "ticker": "NOW"},
-      {"name": "Adobe", "ticker": "ADBE"},
-      {"name": "SAP", "ticker": "SAP"},
-      {"name": "Snowflake", "ticker": "SNOW"},
-      {"name": "Datadog", "ticker": "DDOG"},
-      {"name": "Databricks", "private": true}
+      {
+        "name": "Microsoft",
+        "ticker": "MSFT"
+      },
+      {
+        "name": "Amazon",
+        "ticker": "AMZN"
+      },
+      {
+        "name": "Alphabet",
+        "ticker": "GOOGL"
+      },
+      {
+        "name": "Oracle",
+        "ticker": "ORCL"
+      },
+      {
+        "name": "Salesforce",
+        "ticker": "CRM"
+      },
+      {
+        "name": "ServiceNow",
+        "ticker": "NOW"
+      },
+      {
+        "name": "Adobe",
+        "ticker": "ADBE"
+      },
+      {
+        "name": "SAP",
+        "ticker": "SAP"
+      },
+      {
+        "name": "Snowflake",
+        "ticker": "SNOW"
+      },
+      {
+        "name": "Datadog",
+        "ticker": "DDOG"
+      },
+      {
+        "name": "iShares Expanded Tech-Software ETF",
+        "ticker": "IGV",
+        "etf": true
+      }
     ]
   },
   "Financials & Banks": {
     "companies": [
-      {"name": "JPMorgan Chase", "ticker": "JPM"},
-      {"name": "Bank of America", "ticker": "BAC"},
-      {"name": "Wells Fargo", "ticker": "WFC"},
-      {"name": "Citigroup", "ticker": "C"},
-      {"name": "Goldman Sachs", "ticker": "GS"},
-      {"name": "Morgan Stanley", "ticker": "MS"},
-      {"name": "Berkshire Hathaway", "ticker": "BRK-B"},
-      {"name": "BlackRock", "ticker": "BLK"},
-      {"name": "Visa", "ticker": "V"},
-      {"name": "Mastercard", "ticker": "MA"}
+      {
+        "name": "JPMorgan Chase",
+        "ticker": "JPM"
+      },
+      {
+        "name": "Bank of America",
+        "ticker": "BAC"
+      },
+      {
+        "name": "Wells Fargo",
+        "ticker": "WFC"
+      },
+      {
+        "name": "Citigroup",
+        "ticker": "C"
+      },
+      {
+        "name": "Goldman Sachs",
+        "ticker": "GS"
+      },
+      {
+        "name": "Morgan Stanley",
+        "ticker": "MS"
+      },
+      {
+        "name": "Berkshire Hathaway",
+        "ticker": "BRK-B"
+      },
+      {
+        "name": "BlackRock",
+        "ticker": "BLK"
+      },
+      {
+        "name": "Visa",
+        "ticker": "V"
+      },
+      {
+        "name": "Mastercard",
+        "ticker": "MA"
+      },
+      {
+        "name": "Financial Select Sector SPDR",
+        "ticker": "XLF",
+        "etf": true
+      }
     ]
   },
   "Biotech & Pharma": {
     "companies": [
-      {"name": "Eli Lilly", "ticker": "LLY"},
-      {"name": "Novo Nordisk", "ticker": "NVO"},
-      {"name": "Johnson & Johnson", "ticker": "JNJ"},
-      {"name": "Pfizer", "ticker": "PFE"},
-      {"name": "Merck", "ticker": "MRK"},
-      {"name": "AbbVie", "ticker": "ABBV"},
-      {"name": "Amgen", "ticker": "AMGN"},
-      {"name": "Moderna", "ticker": "MRNA"},
-      {"name": "Regeneron Pharmaceuticals", "ticker": "REGN"},
-      {"name": "AstraZeneca", "ticker": "AZN"}
+      {
+        "name": "Eli Lilly",
+        "ticker": "LLY"
+      },
+      {
+        "name": "Novo Nordisk",
+        "ticker": "NVO"
+      },
+      {
+        "name": "Johnson & Johnson",
+        "ticker": "JNJ"
+      },
+      {
+        "name": "Pfizer",
+        "ticker": "PFE"
+      },
+      {
+        "name": "Merck",
+        "ticker": "MRK"
+      },
+      {
+        "name": "AbbVie",
+        "ticker": "ABBV"
+      },
+      {
+        "name": "Amgen",
+        "ticker": "AMGN"
+      },
+      {
+        "name": "Moderna",
+        "ticker": "MRNA"
+      },
+      {
+        "name": "Regeneron Pharmaceuticals",
+        "ticker": "REGN"
+      },
+      {
+        "name": "AstraZeneca",
+        "ticker": "AZN"
+      },
+      {
+        "name": "iShares Biotechnology ETF",
+        "ticker": "IBB",
+        "etf": true
+      }
     ]
   },
   "Cybersecurity": {
     "companies": [
-      {"name": "CrowdStrike", "ticker": "CRWD"},
-      {"name": "Palo Alto Networks", "ticker": "PANW"},
-      {"name": "Zscaler", "ticker": "ZS"},
-      {"name": "Fortinet", "ticker": "FTNT"},
-      {"name": "Cloudflare", "ticker": "NET"},
-      {"name": "Okta", "ticker": "OKTA"},
-      {"name": "SentinelOne", "ticker": "S"},
-      {"name": "Microsoft", "ticker": "MSFT"},
-      {"name": "Palantir Technologies", "ticker": "PLTR"}
+      {
+        "name": "CrowdStrike",
+        "ticker": "CRWD"
+      },
+      {
+        "name": "Palo Alto Networks",
+        "ticker": "PANW"
+      },
+      {
+        "name": "Zscaler",
+        "ticker": "ZS"
+      },
+      {
+        "name": "Fortinet",
+        "ticker": "FTNT"
+      },
+      {
+        "name": "Cloudflare",
+        "ticker": "NET"
+      },
+      {
+        "name": "Okta",
+        "ticker": "OKTA"
+      },
+      {
+        "name": "SentinelOne",
+        "ticker": "S"
+      },
+      {
+        "name": "Microsoft",
+        "ticker": "MSFT"
+      },
+      {
+        "name": "Palantir Technologies",
+        "ticker": "PLTR"
+      },
+      {
+        "name": "First Trust NASDAQ Cybersecurity ETF",
+        "ticker": "CIBR",
+        "etf": true
+      }
     ]
   },
   "Fintech & Payments": {
     "companies": [
-      {"name": "Visa", "ticker": "V"},
-      {"name": "Mastercard", "ticker": "MA"},
-      {"name": "PayPal", "ticker": "PYPL"},
-      {"name": "Block", "ticker": "XYZ"},
-      {"name": "Coinbase", "ticker": "COIN"},
-      {"name": "Fiserv", "ticker": "FI"},
-      {"name": "Adyen", "ticker": "ADYEY"},
-      {"name": "Nu Holdings", "ticker": "NU"},
-      {"name": "SoFi Technologies", "ticker": "SOFI"},
-      {"name": "Stripe", "private": true},
-      {"name": "Revolut", "private": true},
-      {"name": "Plaid", "private": true}
+      {
+        "name": "Visa",
+        "ticker": "V"
+      },
+      {
+        "name": "Mastercard",
+        "ticker": "MA"
+      },
+      {
+        "name": "PayPal",
+        "ticker": "PYPL"
+      },
+      {
+        "name": "Block",
+        "ticker": "XYZ"
+      },
+      {
+        "name": "Coinbase",
+        "ticker": "COIN"
+      },
+      {
+        "name": "Fiserv",
+        "ticker": "FI"
+      },
+      {
+        "name": "Adyen",
+        "ticker": "ADYEY"
+      },
+      {
+        "name": "Nu Holdings",
+        "ticker": "NU"
+      },
+      {
+        "name": "SoFi Technologies",
+        "ticker": "SOFI"
+      },
+      {
+        "name": "Global X FinTech ETF",
+        "ticker": "FINX",
+        "etf": true
+      }
     ]
   },
   "Healthcare & Medical Devices": {
     "companies": [
-      {"name": "UnitedHealth Group", "ticker": "UNH"},
-      {"name": "Intuitive Surgical", "ticker": "ISRG"},
-      {"name": "Medtronic", "ticker": "MDT"},
-      {"name": "Abbott Laboratories", "ticker": "ABT"},
-      {"name": "Stryker", "ticker": "SYK"},
-      {"name": "Boston Scientific", "ticker": "BSX"},
-      {"name": "Thermo Fisher Scientific", "ticker": "TMO"},
-      {"name": "Danaher", "ticker": "DHR"},
-      {"name": "CVS Health", "ticker": "CVS"},
-      {"name": "Johnson & Johnson", "ticker": "JNJ"}
+      {
+        "name": "UnitedHealth Group",
+        "ticker": "UNH"
+      },
+      {
+        "name": "Intuitive Surgical",
+        "ticker": "ISRG"
+      },
+      {
+        "name": "Medtronic",
+        "ticker": "MDT"
+      },
+      {
+        "name": "Abbott Laboratories",
+        "ticker": "ABT"
+      },
+      {
+        "name": "Stryker",
+        "ticker": "SYK"
+      },
+      {
+        "name": "Boston Scientific",
+        "ticker": "BSX"
+      },
+      {
+        "name": "Thermo Fisher Scientific",
+        "ticker": "TMO"
+      },
+      {
+        "name": "Danaher",
+        "ticker": "DHR"
+      },
+      {
+        "name": "CVS Health",
+        "ticker": "CVS"
+      },
+      {
+        "name": "Johnson & Johnson",
+        "ticker": "JNJ"
+      },
+      {
+        "name": "iShares U.S. Medical Devices ETF",
+        "ticker": "IHI",
+        "etf": true
+      }
     ]
   },
   "Consumer & Retail": {
     "companies": [
-      {"name": "Amazon", "ticker": "AMZN"},
-      {"name": "Walmart", "ticker": "WMT"},
-      {"name": "Costco Wholesale", "ticker": "COST"},
-      {"name": "Nike", "ticker": "NKE"},
-      {"name": "McDonald's", "ticker": "MCD"},
-      {"name": "Coca-Cola", "ticker": "KO"},
-      {"name": "Procter & Gamble", "ticker": "PG"},
-      {"name": "Home Depot", "ticker": "HD"},
-      {"name": "Starbucks", "ticker": "SBUX"},
-      {"name": "PepsiCo", "ticker": "PEP"}
+      {
+        "name": "Amazon",
+        "ticker": "AMZN"
+      },
+      {
+        "name": "Walmart",
+        "ticker": "WMT"
+      },
+      {
+        "name": "Costco Wholesale",
+        "ticker": "COST"
+      },
+      {
+        "name": "Nike",
+        "ticker": "NKE"
+      },
+      {
+        "name": "McDonald's",
+        "ticker": "MCD"
+      },
+      {
+        "name": "Coca-Cola",
+        "ticker": "KO"
+      },
+      {
+        "name": "Procter & Gamble",
+        "ticker": "PG"
+      },
+      {
+        "name": "Home Depot",
+        "ticker": "HD"
+      },
+      {
+        "name": "Starbucks",
+        "ticker": "SBUX"
+      },
+      {
+        "name": "PepsiCo",
+        "ticker": "PEP"
+      },
+      {
+        "name": "Consumer Discretionary Select Sector SPDR",
+        "ticker": "XLY",
+        "etf": true
+      }
     ]
   },
   "Media & Streaming": {
     "companies": [
-      {"name": "Netflix", "ticker": "NFLX"},
-      {"name": "Walt Disney", "ticker": "DIS"},
-      {"name": "Comcast", "ticker": "CMCSA"},
-      {"name": "Warner Bros. Discovery", "ticker": "WBD"},
-      {"name": "Spotify Technology", "ticker": "SPOT"},
-      {"name": "Alphabet", "ticker": "GOOGL"},
-      {"name": "Meta Platforms", "ticker": "META"},
-      {"name": "Paramount Skydance", "ticker": "PSKY"}
+      {
+        "name": "Netflix",
+        "ticker": "NFLX"
+      },
+      {
+        "name": "Walt Disney",
+        "ticker": "DIS"
+      },
+      {
+        "name": "Comcast",
+        "ticker": "CMCSA"
+      },
+      {
+        "name": "Warner Bros. Discovery",
+        "ticker": "WBD"
+      },
+      {
+        "name": "Spotify Technology",
+        "ticker": "SPOT"
+      },
+      {
+        "name": "Alphabet",
+        "ticker": "GOOGL"
+      },
+      {
+        "name": "Meta Platforms",
+        "ticker": "META"
+      },
+      {
+        "name": "Paramount Skydance",
+        "ticker": "PSKY"
+      },
+      {
+        "name": "Communication Services Select Sector SPDR",
+        "ticker": "XLC",
+        "etf": true
+      }
     ]
   },
   "Crypto & Digital Assets": {
     "companies": [
-      {"name": "Coinbase", "ticker": "COIN"},
-      {"name": "Strategy", "ticker": "MSTR"},
-      {"name": "MARA Holdings", "ticker": "MARA"},
-      {"name": "Riot Platforms", "ticker": "RIOT"},
-      {"name": "Robinhood Markets", "ticker": "HOOD"},
-      {"name": "Block", "ticker": "XYZ"},
-      {"name": "Galaxy Digital", "ticker": "GLXY"}
+      {
+        "name": "Coinbase",
+        "ticker": "COIN"
+      },
+      {
+        "name": "Strategy",
+        "ticker": "MSTR"
+      },
+      {
+        "name": "MARA Holdings",
+        "ticker": "MARA"
+      },
+      {
+        "name": "Riot Platforms",
+        "ticker": "RIOT"
+      },
+      {
+        "name": "Robinhood Markets",
+        "ticker": "HOOD"
+      },
+      {
+        "name": "Block",
+        "ticker": "XYZ"
+      },
+      {
+        "name": "Galaxy Digital",
+        "ticker": "GLXY"
+      },
+      {
+        "name": "Amplify Transformational Data Sharing ETF",
+        "ticker": "BLOK",
+        "etf": true
+      },
+      {
+        "name": "iShares Bitcoin Trust",
+        "ticker": "IBIT",
+        "etf": true
+      },
+      {
+        "name": "iShares Ethereum Trust",
+        "ticker": "ETHA",
+        "etf": true
+      }
     ]
   },
   "AI Infrastructure & Data Centers": {
     "companies": [
-      {"name": "NVIDIA", "ticker": "NVDA"},
-      {"name": "Vertiv Holdings", "ticker": "VRT"},
-      {"name": "Super Micro Computer", "ticker": "SMCI"},
-      {"name": "Dell Technologies", "ticker": "DELL"},
-      {"name": "Arista Networks", "ticker": "ANET"},
-      {"name": "Broadcom", "ticker": "AVGO"},
-      {"name": "Equinix", "ticker": "EQIX"},
-      {"name": "Digital Realty Trust", "ticker": "DLR"},
-      {"name": "CoreWeave", "ticker": "CRWV"},
-      {"name": "Oracle", "ticker": "ORCL"},
-      {"name": "Databricks", "private": true}
+      {
+        "name": "NVIDIA",
+        "ticker": "NVDA"
+      },
+      {
+        "name": "Vertiv Holdings",
+        "ticker": "VRT"
+      },
+      {
+        "name": "Super Micro Computer",
+        "ticker": "SMCI"
+      },
+      {
+        "name": "Dell Technologies",
+        "ticker": "DELL"
+      },
+      {
+        "name": "Arista Networks",
+        "ticker": "ANET"
+      },
+      {
+        "name": "Broadcom",
+        "ticker": "AVGO"
+      },
+      {
+        "name": "Equinix",
+        "ticker": "EQIX"
+      },
+      {
+        "name": "Digital Realty Trust",
+        "ticker": "DLR"
+      },
+      {
+        "name": "CoreWeave",
+        "ticker": "CRWV"
+      },
+      {
+        "name": "Oracle",
+        "ticker": "ORCL"
+      },
+      {
+        "name": "Pacer Data & Infrastructure REIT ETF",
+        "ticker": "SRVR",
+        "etf": true
+      }
     ]
   },
   "Robotics & Automation": {
     "companies": [
-      {"name": "NVIDIA", "ticker": "NVDA"},
-      {"name": "Tesla", "ticker": "TSLA"},
-      {"name": "Intuitive Surgical", "ticker": "ISRG"},
-      {"name": "Rockwell Automation", "ticker": "ROK"},
-      {"name": "ABB", "ticker": "ABBNY"},
-      {"name": "Symbotic", "ticker": "SYM"},
-      {"name": "Teradyne", "ticker": "TER"},
-      {"name": "Zebra Technologies", "ticker": "ZBRA"},
-      {"name": "Figure AI", "private": true}
+      {
+        "name": "NVIDIA",
+        "ticker": "NVDA"
+      },
+      {
+        "name": "Tesla",
+        "ticker": "TSLA"
+      },
+      {
+        "name": "Intuitive Surgical",
+        "ticker": "ISRG"
+      },
+      {
+        "name": "Rockwell Automation",
+        "ticker": "ROK"
+      },
+      {
+        "name": "ABB",
+        "ticker": "ABBNY"
+      },
+      {
+        "name": "Symbotic",
+        "ticker": "SYM"
+      },
+      {
+        "name": "Teradyne",
+        "ticker": "TER"
+      },
+      {
+        "name": "Zebra Technologies",
+        "ticker": "ZBRA"
+      },
+      {
+        "name": "ROBO Global Robotics & Automation ETF",
+        "ticker": "ROBO",
+        "etf": true
+      }
     ]
   },
   "Energy Storage": {
     "companies": [
-      {"name": "Tesla", "ticker": "TSLA"},
-      {"name": "Enphase Energy", "ticker": "ENPH"},
-      {"name": "Fluence Energy", "ticker": "FLNC"},
-      {"name": "QuantumScape", "ticker": "QS"},
-      {"name": "Solid Power", "ticker": "SLDP"},
-      {"name": "Eos Energy Enterprises", "ticker": "EOSE"},
-      {"name": "Albemarle", "ticker": "ALB"},
-      {"name": "Panasonic Holdings", "ticker": "PCRFY"},
-      {"name": "Form Energy", "private": true}
+      {
+        "name": "Tesla",
+        "ticker": "TSLA"
+      },
+      {
+        "name": "Enphase Energy",
+        "ticker": "ENPH"
+      },
+      {
+        "name": "Fluence Energy",
+        "ticker": "FLNC"
+      },
+      {
+        "name": "QuantumScape",
+        "ticker": "QS"
+      },
+      {
+        "name": "Solid Power",
+        "ticker": "SLDP"
+      },
+      {
+        "name": "Eos Energy Enterprises",
+        "ticker": "EOSE"
+      },
+      {
+        "name": "Albemarle",
+        "ticker": "ALB"
+      },
+      {
+        "name": "Global X Lithium & Battery Tech ETF",
+        "ticker": "LIT",
+        "etf": true
+      }
     ]
   },
   "Transportation & Logistics": {
     "companies": [
-      {"name": "Union Pacific", "ticker": "UNP"},
-      {"name": "United Parcel Service", "ticker": "UPS"},
-      {"name": "FedEx", "ticker": "FDX"},
-      {"name": "Delta Air Lines", "ticker": "DAL"},
-      {"name": "United Airlines", "ticker": "UAL"},
-      {"name": "Uber Technologies", "ticker": "UBER"},
-      {"name": "Lyft", "ticker": "LYFT"},
-      {"name": "Old Dominion Freight Line", "ticker": "ODFL"},
-      {"name": "J.B. Hunt Transport Services", "ticker": "JBHT"}
+      {
+        "name": "Union Pacific",
+        "ticker": "UNP"
+      },
+      {
+        "name": "United Parcel Service",
+        "ticker": "UPS"
+      },
+      {
+        "name": "FedEx",
+        "ticker": "FDX"
+      },
+      {
+        "name": "Delta Air Lines",
+        "ticker": "DAL"
+      },
+      {
+        "name": "United Airlines",
+        "ticker": "UAL"
+      },
+      {
+        "name": "Uber Technologies",
+        "ticker": "UBER"
+      },
+      {
+        "name": "Lyft",
+        "ticker": "LYFT"
+      },
+      {
+        "name": "Old Dominion Freight Line",
+        "ticker": "ODFL"
+      },
+      {
+        "name": "J.B. Hunt Transport Services",
+        "ticker": "JBHT"
+      },
+      {
+        "name": "iShares U.S. Transportation ETF",
+        "ticker": "IYT",
+        "etf": true
+      }
+    ]
+  },
+  "Pre-IPO Private Tech": {
+    "companies": [
+      {
+        "name": "Destiny Tech100",
+        "ticker": "DXYZ"
+      },
+      {
+        "name": "Fundrise Innovation Fund",
+        "ticker": "VCX"
+      },
+      {
+        "name": "ERShares Entrepreneurs ETF",
+        "ticker": "XOVR",
+        "etf": true
+      }
+    ]
+  },
+  "Market Indices": {
+    "companies": [
+      {
+        "name": "SPDR S&P 500 ETF",
+        "ticker": "SPY",
+        "etf": true
+      },
+      {
+        "name": "Invesco QQQ (Nasdaq-100)",
+        "ticker": "QQQ",
+        "etf": true
+      },
+      {
+        "name": "iShares Russell 2000 ETF",
+        "ticker": "IWM",
+        "etf": true
+      },
+      {
+        "name": "SPDR Dow Jones Industrial Average ETF",
+        "ticker": "DIA",
+        "etf": true
+      },
+      {
+        "name": "Vanguard Total Stock Market ETF",
+        "ticker": "VTI",
+        "etf": true
+      }
+    ]
+  },
+  "Fixed Income": {
+    "companies": [
+      {
+        "name": "iShares Core U.S. Aggregate Bond ETF",
+        "ticker": "AGG",
+        "etf": true
+      },
+      {
+        "name": "Vanguard Total Bond Market ETF",
+        "ticker": "BND",
+        "etf": true
+      },
+      {
+        "name": "iShares 20+ Year Treasury Bond ETF",
+        "ticker": "TLT",
+        "etf": true
+      },
+      {
+        "name": "iShares 7-10 Year Treasury Bond ETF",
+        "ticker": "IEF",
+        "etf": true
+      },
+      {
+        "name": "iShares iBoxx Investment Grade Corporate Bond ETF",
+        "ticker": "LQD",
+        "etf": true
+      },
+      {
+        "name": "iShares iBoxx High Yield Corporate Bond ETF",
+        "ticker": "HYG",
+        "etf": true
+      },
+      {
+        "name": "iShares TIPS Bond ETF",
+        "ticker": "TIP",
+        "etf": true
+      },
+      {
+        "name": "iShares 0-3 Month Treasury Bond ETF",
+        "ticker": "SGOV",
+        "etf": true
+      }
+    ]
+  },
+  "Commodities": {
+    "companies": [
+      {
+        "name": "SPDR Gold Shares",
+        "ticker": "GLD",
+        "etf": true
+      },
+      {
+        "name": "iShares Silver Trust",
+        "ticker": "SLV",
+        "etf": true
+      },
+      {
+        "name": "United States Oil Fund",
+        "ticker": "USO",
+        "etf": true
+      },
+      {
+        "name": "Invesco DB Commodity Index Tracking Fund",
+        "ticker": "DBC",
+        "etf": true
+      }
     ]
   }
 }
