@@ -16,7 +16,7 @@ Two books kept separate: **Trades** (active, bracketed) and **Investments** (buy
 | Date In | Ticker | Dir | Entry | Init Stop | Cur Stop | Target | Shares | 1R $ | Setup / Reason | Lesson |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-07-07 | MSFT | Long | 392.78 | 372 | **386** | 410 | 5 | 103.90 | _(fill in)_ | Re-anchored stop to confirmed $386.40 low |
-| 2026-07-17 | SPCX | Long | 126.86 | none | — | — | 100 | undefined | _(fill in)_ | No stop/target set yet — still needs a bracket |
+| 2026-07-17 | SPCX | Long | 126.86 | **118** | **118** | — | 100 | 886 | Post-IPO momentum (went against me) | No support in price discovery (new lows daily) → set a hard-$ risk stop ($118 = max loss ~$886), not a support stop |
 
 ## Pending orders (working, not yet filled)
 | Date | Ticker | Order | Note |
