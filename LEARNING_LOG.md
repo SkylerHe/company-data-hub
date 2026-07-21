@@ -45,7 +45,7 @@ Track what you've actually learned, with dates so progress is traceable.
 ## Journaling & review (Lessons 4–5 ✅)
 | Concept | Status | Date | Where it maps |
 |---|---|---|---|
-| Trade journal (`TRADE_JOURNAL.md`) | ✅ | 2026-07-16 | Training J.1 |
+| Trade journal (`trade/TRADE_JOURNAL.md`) | ✅ | 2026-07-16 | Training J.1 |
 | Win rate / avg win-loss (R) | ✅ | 2026-07-16 | CFA Quant (Topic 2) |
 | Expectancy & profit factor | ✅ | 2026-07-16 | CFA Quant (Topic 2) |
 | Sample-size caveat (~20–30 trades) | ✅ | 2026-07-16 | CFA Quant |
