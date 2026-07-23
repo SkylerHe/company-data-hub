@@ -4,3 +4,4 @@ PyYAML>=6.0
 edgartools>=2.6.1
 ib_insync>=0.9.86
 yfinance>=0.2.40
+openpyxl>=3.1
