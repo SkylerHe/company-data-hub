@@ -58,12 +58,23 @@ def connect_ibkr():
         sys.exit(1)
 
 
+# IBKR uses its own symbology for a few names — notably a SPACE for share-class
+# suffixes (Berkshire class B is "BRK B", not "BRK-B"). We keep our stored ticker
+# as-is everywhere else; this map is applied ONLY for the IBKR contract lookup.
+IBKR_SYMBOL_MAP = {
+    "BRK-B": "BRK B",
+}
+
+
 def get_contract(ib, ticker):
-    """Create and qualify a stock contract."""
-    stock = Stock(ticker, 'SMART', 'USD')
+    """Create and qualify a stock contract. `ticker` is our stored symbol;
+    translate to IBKR's symbology where they differ (e.g. class shares)."""
+    symbol = IBKR_SYMBOL_MAP.get(ticker, ticker)
+    stock = Stock(symbol, 'SMART', 'USD')
     contracts = ib.qualifyContracts(stock)
     if not contracts:
-        print(f"  ! Could not qualify contract for {ticker}")
+        extra = f" (IBKR symbol '{symbol}')" if symbol != ticker else ""
+        print(f"  ! Could not qualify contract for {ticker}{extra}")
         return None
     return contracts[0]
 
@@ -285,11 +296,14 @@ def main():
     # Connect to database
     db = store.get_db(args.db)
     
-    # Get companies with tickers
+    # Get tradable instruments with tickers. Exclude the 'account' class: it's a
+    # pseudo-instrument (ticker 'PORTFOLIO') holding IBKR account-level summary
+    # metrics, not a security — IBKR has no contract for it, so skip it here.
     companies = db.execute("""
-        SELECT name, ticker 
-        FROM companies 
+        SELECT name, ticker
+        FROM companies
         WHERE ticker IS NOT NULL AND ticker != ''
+          AND asset_class <> 'account'
         ORDER BY name
     """).fetchall()
     

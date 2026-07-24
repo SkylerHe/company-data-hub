@@ -41,6 +41,13 @@ import store
 
 SOURCE = "SEC/EDGAR"
 
+# EDGAR's ticker→CIK map lags corporate ticker changes; map our stored ticker to
+# the symbol EDGAR still indexes (e.g. Fiserv renamed FISV→FI in 2023, but
+# edgartools resolves it only as FISV). The stored ticker stays as-is.
+EDGAR_TICKER_MAP = {
+    "FI": "FISV",   # Fiserv
+}
+
 # edgartools' standardized metric key  ->  (our metric name, unit).
 # We store raw statement line items only; ratios/EPS are derived later in
 # analyze.py so there's one place that owns the math.
@@ -120,10 +127,12 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
     Returns a small summary dict for reporting."""
     result = {"filings": 0, "written": 0, "errors": 0}
 
+    symbol = EDGAR_TICKER_MAP.get(ticker, ticker)
     try:
-        filings = Company(ticker).get_filings(form="10-K").latest(args.years)
+        filings = Company(symbol).get_filings(form="10-K").latest(args.years)
     except Exception as e:
-        print(f"    ! EDGAR lookup failed for {ticker}: {e}")
+        alias = f" (as {symbol})" if symbol != ticker else ""
+        print(f"    ! EDGAR lookup failed for {ticker}{alias}: {e}")
         result["errors"] += 1
         return result
 

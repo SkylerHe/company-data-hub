@@ -36,6 +36,7 @@ from pathlib import Path
 from edgar import Company, set_identity
 
 import store
+from scrape_edgar_financials import EDGAR_TICKER_MAP  # shared EDGAR ticker aliases (e.g. FI→FISV)
 
 
 # ----------------------------------------------------------------------------
@@ -117,8 +118,9 @@ def scrape_company_filings(db, company: str, ticker: str, args) -> dict:
     filing_types = ["10-K", "10-Q", "8-K"]
 
     try:
-        # Fetch company filings from SEC EDGAR
-        edgar_company = Company(ticker)
+        # Fetch company filings from SEC EDGAR (map stored ticker to EDGAR's
+        # symbol where they differ, e.g. Fiserv FI→FISV).
+        edgar_company = Company(EDGAR_TICKER_MAP.get(ticker, ticker))
 
         for filing_type in filing_types:
             try:
