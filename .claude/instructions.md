@@ -75,9 +75,8 @@ dashboard.py    → Web UI for viewing data
 ### When Making Changes
 1. Test the specific function/script
 2. Check for unused code from the change
-3. Update README.md if user-facing behavior changes
-4. Update SUMMARY.md if data structure changes
-5. Never create new files unless absolutely necessary
+3. Update CLAUDE.md if architecture, layout, data model, or how-to-run changes
+4. Never create new files unless absolutely necessary
 
 ---
 
@@ -102,7 +101,7 @@ dashboard.py    → Web UI for viewing data
 find . -name "*test*.py" -o -name "*Test*.py" | grep -v venv
 
 # 2. Check for unused scripts
-ls *.sh *.py | xargs -I {} echo "Check if {} is referenced in README/SUMMARY"
+ls *.sh *.py | xargs -I {} echo "Check if {} is referenced in CLAUDE.md"
 
 # 3. Check database size
 du -sh finance.db
