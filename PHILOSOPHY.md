@@ -30,13 +30,19 @@
     - "Diversification is protection against ignorance." Even **Buffett wills his estate ~90% into a low-cost S&P 500 index** — he concentrates *his* money (proven edge) and tells everyone else to index.
     - **Where I stand:** no demonstrated edge yet (journal has ~1 closed trade) → **I diversify (index core).** Concentration without edge = uncompensated risk + an unproven bet on my own skill. *(That's the SPCX failure mode.)*
 14. **Don't turn a losing trade into a "long-term hold."** Hope is not a thesis. Reclassifying to avoid selling is a trap.
+15. **Vet quality before price — the pre-buy due-diligence gate.** Cheap isn't enough; the numbers must be *trustworthy* and the risks *read*. #10 is the price side; this is the quality side. Before buying a name you'll hold:
+    - ✅ **Clean (unqualified) audit opinion** — qualified / adverse / disclaimer is an accounting red flag.
+    - ✅ **No material weakness in internal controls** (SOX disclosure) — weak controls = can't be trusted to count its own money.
+    - ✅ **Read the MD&A + risk factors** — management's own strategy and the risks *they* admit to.
+    - ✅ **Margin of safety** — a real discount to intrinsic value (#10).
+    *(Applies to the Investments book and any meaningfully-held position; a quick, tiny technical Trade you'll exit fast may not warrant the full 10-K dig — just know that's the trade-off you're making.)*
 
 ## V. Process & psychology
-15. **Two books, kept separate:** long-term **Investments** (hold, no stop) vs. active **Trades** (bracketed).
-16. **Judge process, not outcome.** A win with a broken process is still a bad trade; a planned loss is a success.
-17. **Journal everything; measure expectancy over ~20+ trades.** Any short streak is noise.
-18. **Independent and patient.** Cash while waiting is fine; don't get herded by fear or greed.
+16. **Two books, kept separate:** long-term **Investments** (hold, no stop) vs. active **Trades** (bracketed).
+17. **Judge process, not outcome.** A win with a broken process is still a bad trade; a planned loss is a success.
+18. **Journal everything; measure expectancy over ~20+ trades.** Any short streak is noise.
+19. **Independent and patient.** Cash while waiting is fine; don't get herded by fear or greed.
 
 ---
 
-*Sources woven in so far: risk-first sizing, evidence-based stops, trailing/breakeven discipline, Benjamin Graham & Seth Klarman (margin of safety), market efficiency / index investing. Add your own as you read and decide what you believe.*
+*Sources woven in so far: risk-first sizing, evidence-based stops, trailing/breakeven discipline, Benjamin Graham & Seth Klarman (margin of safety), market efficiency / index investing, pre-buy due-diligence gate (CFA L1 FSA — audit opinion, internal controls, MD&A/risk factors). Add your own as you read and decide what you believe.*
