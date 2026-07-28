@@ -8,9 +8,11 @@ the actual multi-year statement *numbers* — revenue, net income, free cash flo
 assets, etc. across fiscal years. A DCF forecast and any trend-based fundamental
 analysis need that history. This collector supplies it.
 
-Per company (US filers only — foreign/ADR names simply have no 10-K and are
-skipped), it:
-  1. Pulls the last N annual 10-K filings via the edgartools library.
+Per company, it:
+  1. Pulls the last N annual reports via edgartools — a 10-K for US filers, or a
+     20-F for foreign private issuers (ADRs / NY-registry shares like ASML), which
+     file 20-F instead of 10-K. Note: foreign filers often report in their home
+     currency (ASML in EUR), so those line items are NOT USD despite the unit tag.
   2. Reads each filing's standardized financial metrics (cross-company-consistent
      line items from XBRL — see edgartools' get_financial_metrics()).
   3. Writes each line item to the metrics table as one row per fiscal year,
@@ -31,11 +33,18 @@ Requires SEC_IDENTITY in .env ("Your Name you@email.com"), same as scrape_filing
 """
 
 import argparse
+import json
 import os
 import sys
+import urllib.request
 from pathlib import Path
 
 from edgar import Company, set_identity
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 import store
 
@@ -120,38 +129,122 @@ def fiscal_period(filing) -> str | None:
 
 
 # ----------------------------------------------------------------------------
+# Currency (foreign filers report in their home currency — convert to USD)
+# ----------------------------------------------------------------------------
+_FX_CACHE = {}
+
+
+def reporting_currency(cik, identity):
+    """Detect a filer's reporting currency from SEC XBRL facts (e.g. ASML → EUR).
+
+    Reads the currency the balance-sheet totals are denominated in (unit keys in
+    companyfacts are ISO codes like 'EUR'/'USD', vs 'shares'). Defaults to 'USD'
+    on any failure — US filers report in USD anyway."""
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{int(cik):010d}.json"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": identity})
+        data = json.load(urllib.request.urlopen(req, timeout=20))
+    except Exception:
+        return "USD"
+    for taxo in data.get("facts", {}).values():
+        for concept in ("Assets", "Liabilities", "StockholdersEquity"):
+            fact = taxo.get(concept)
+            if not fact:
+                continue
+            for unit in fact.get("units", {}):
+                if len(unit) == 3 and unit.isalpha():  # ISO currency code
+                    return unit
+    return "USD"
+
+
+def usd_fx_rate(currency):
+    """Current spot rate to convert `currency` → USD (1.0 for USD, None if no data).
+
+    We apply this one current rate to every fiscal year. That keeps growth rates
+    (and thus the DCF's CAGR / reverse-DCF) exact — a constant multiplier doesn't
+    change a CAGR — and makes the latest year, which the DCF projects from, correct.
+    Per-year average rates would only refine the historical absolute levels."""
+    if currency == "USD":
+        return 1.0
+    if currency in _FX_CACHE:
+        return _FX_CACHE[currency]
+    rate = None
+    if yf is not None:
+        try:
+            hist = yf.Ticker(f"{currency}USD=X").history(period="5d")
+            if hist is not None and not hist.empty:
+                rate = float(hist["Close"].iloc[-1])
+        except Exception:
+            rate = None
+    _FX_CACHE[currency] = rate
+    return rate
+
+
+# ----------------------------------------------------------------------------
 # Core
 # ----------------------------------------------------------------------------
+def _latest_annual_filings(company_obj, form, years):
+    """Fetch the latest N annual filings of one form, normalized to a plain list.
+
+    .latest(N) returns an EntityFilings collection, but with only one filing
+    available (recent IPOs like CRWV) it returns a single, NON-iterable
+    EntityFiling. Normalize all three shapes (None / single / iterable) to a list.
+    Returns [] on no match or lookup error.
+    """
+    try:
+        filings = company_obj.get_filings(form=form).latest(years)
+    except Exception:
+        return []
+    if filings is None:
+        return []
+    if isinstance(filings, list):
+        return filings
+    try:
+        return list(filings)
+    except TypeError:
+        return [filings]  # single EntityFiling
+
+
 def scrape_company_financials(db, company, ticker, args) -> dict:
-    """Pull the last N annual 10-Ks for one company and store their line items.
+    """Pull the last N annual reports for one company and store their line items.
+
+    US filers file a 10-K; foreign private issuers (ADRs / NY-registry shares like
+    ASML) file a 20-F instead. Try 10-K first, then fall back to 20-F so foreign
+    names get fundamentals too. edgartools parses both identically via XBRL.
     Returns a small summary dict for reporting."""
     result = {"filings": 0, "written": 0, "errors": 0}
 
     symbol = EDGAR_TICKER_MAP.get(ticker, ticker)
     try:
-        filings = Company(symbol).get_filings(form="10-K").latest(args.years)
+        company_obj = Company(symbol)
     except Exception as e:
         alias = f" (as {symbol})" if symbol != ticker else ""
         print(f"    ! EDGAR lookup failed for {ticker}{alias}: {e}")
         result["errors"] += 1
         return result
 
-    # .latest(N) returns an EntityFilings collection, but .latest with only one
-    # filing available (recent IPOs like CRWV) returns a single, NON-iterable
-    # EntityFiling. Normalize all three shapes to a plain list.
-    if filings is None:
-        print("    · no 10-K filings found")
-        return result
-    if isinstance(filings, list):
-        pass
-    else:
-        try:
-            filings = list(filings)
-        except TypeError:
-            filings = [filings]  # single EntityFiling
+    filings = _latest_annual_filings(company_obj, "10-K", args.years)
+    form_used = "10-K"
     if not filings:
-        print("    · no 10-K filings found")
+        # No 10-K — try the foreign-filer annual report.
+        filings = _latest_annual_filings(company_obj, "20-F", args.years)
+        form_used = "20-F"
+    if not filings:
+        print("    · no 10-K or 20-F filings found")
         return result
+    if form_used == "20-F":
+        print(f"    · foreign filer — using 20-F ({len(filings)} found)")
+
+    # Foreign filers report in their home currency (ASML → EUR); convert monetary
+    # line items to USD so downstream valuation isn't mixing currencies against a
+    # USD price. Share counts stay as-is.
+    currency = reporting_currency(company_obj.cik, os.environ.get("SEC_IDENTITY", ""))
+    fx = usd_fx_rate(currency)
+    if currency != "USD":
+        if fx:
+            print(f"    · reports in {currency} — converting → USD @ {fx:.4f} (current spot)")
+        else:
+            print(f"    · reports in {currency} — FX unavailable; storing native {currency}")
 
     for filing in filings:
         period = fiscal_period(filing)
@@ -169,12 +262,21 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
             value = metrics.get(key)
             if value is None or not isinstance(value, (int, float)):
                 continue
+            out_value, out_unit = float(value), unit
+            # Convert monetary line items (unit 'USD') from the home currency;
+            # leave share counts (unit 'count') alone. If FX is unavailable, store
+            # the native value with a truthful currency tag rather than mislabel it.
+            if unit == "USD" and currency != "USD":
+                if fx:
+                    out_value *= fx
+                else:
+                    out_unit = currency
             if args.dry_run:
                 result["written"] += 1
                 continue
             try:
                 store.add_metric(db, company, metric_name, period,
-                                  float(value), unit=unit, source=SOURCE)
+                                  out_value, unit=out_unit, source=SOURCE)
                 result["written"] += 1
             except Exception as e:
                 print(f"    ! store error ({metric_name} {period}): {e}")
