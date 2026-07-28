@@ -63,7 +63,22 @@ def connect_ibkr():
 # as-is everywhere else; this map is applied ONLY for the IBKR contract lookup.
 IBKR_SYMBOL_MAP = {
     "BRK-B": "BRK B",
+    # Fiserv rebranded FISV -> FI, but IBKR's contract DB still lists it under the
+    # legacy NASDAQ symbol FISV; 'FI' resolves to nothing on SMART. Keep our stored
+    # ticker 'FI'; look it up as 'FISV'. (Verified: conId 269315, FISERV INC.)
+    "FI": "FISV",
 }
+
+
+def _years_to_yf_period(years):
+    """Map an IBKR-style history depth (int years) to the nearest valid yfinance
+    period string. yfinance only accepts a fixed set (1/2/5/10y, ytd, max), so we
+    round UP to the smallest window that still covers the requested depth — this
+    guarantees a rotting ticker gets fully backfilled on the next run."""
+    for y, period in ((1, "1y"), (2, "2y"), (5, "5y"), (10, "10y")):
+        if years <= y:
+            return period
+    return "max"
 
 
 def get_contract(ib, ticker):
@@ -121,7 +136,25 @@ def fetch_prices(ib, db, company, ticker, years=5):
 
     contract = get_contract(ib, ticker)
     if not contract:
-        return {"errors": 1}
+        # IBKR can't resolve this symbol AT ALL — a PERMANENT failure (bad or
+        # renamed ticker), distinct from transient IB Gateway flakiness (a down
+        # gateway fails to connect in main() and never reaches here). Left alone,
+        # such a ticker silently rots for weeks (exactly how Fiserv 'FI' went stale
+        # until we mapped it to 'FISV'). Fall back to Yahoo so the instrument keeps
+        # updating and the gap is visible in the summary. Lazy import so a missing
+        # yfinance degrades to one error here instead of aborting the whole run.
+        print(f"    → IBKR could not qualify {ticker}; falling back to Yahoo")
+        try:
+            from scrape_yahoo import fetch_yahoo_prices
+        except Exception as e:
+            print(f"    ! Yahoo fallback unavailable: {e}")
+            return {"new": 0, "errors": 1, "fallbacks": 1}
+        r = fetch_yahoo_prices(db, company, ticker, period=_years_to_yf_period(years))
+        r["fallbacks"] = 1
+        if r.get("new", 0) == 0:
+            # Bad on IBKR *and* Yahoo — this one genuinely needs a human to look.
+            r["errors"] = r.get("errors", 0) or 1
+        return r
 
     result = {"new": 0, "errors": 0}
 
@@ -250,8 +283,8 @@ def scrape_company(ib, db, company, ticker, args):
     """Scrape all IBKR data for one company."""
     print(f"\n{company} ({ticker})")
     
-    result = {"fundamentals": 0, "prices": 0, "estimates": 0, "news": 0, "errors": 0}
-    
+    result = {"fundamentals": 0, "prices": 0, "estimates": 0, "news": 0, "errors": 0, "fallbacks": 0}
+
     if args.fundamentals_only or not (args.prices_only or args.news_only or args.estimates_only):
         r = fetch_fundamentals(ib, db, company, ticker)
         result["fundamentals"] = r.get("new", 0)
@@ -262,6 +295,7 @@ def scrape_company(ib, db, company, ticker, args):
         r = fetch_prices(ib, db, company, ticker, years=years)
         result["prices"] = r.get("new", 0)
         result["errors"] += r.get("errors", 0)
+        result["fallbacks"] += r.get("fallbacks", 0)
     
     if args.estimates_only or not (args.fundamentals_only or args.prices_only or args.news_only):
         r = fetch_analyst_estimates(ib, db, company, ticker)
@@ -315,7 +349,7 @@ def main():
     
     print(f"\nCollecting data for {len(companies)} companies...\n")
     
-    totals = {"fundamentals": 0, "prices": 0, "estimates": 0, "news": 0, "errors": 0}
+    totals = {"fundamentals": 0, "prices": 0, "estimates": 0, "news": 0, "errors": 0, "fallbacks": 0}
     
     for company, ticker in companies:
         try:
@@ -335,6 +369,9 @@ def main():
     print(f"  Estimates:    {totals['estimates']} reports")
     print(f"  News:         {totals['news']} articles")
     print(f"  Errors:       {totals['errors']}")
+    if totals['fallbacks']:
+        print(f"  Yahoo fallbacks: {totals['fallbacks']} instrument(s) — IBKR "
+              f"couldn't qualify the symbol (check for a renamed/bad ticker)")
 
 
 if __name__ == '__main__':
