@@ -15,20 +15,22 @@ companies. Started as pure data collection; now also reasons about the data.
 COLLECT                    STORE            ANALYZE (read-only)        USE
 scrape_ibkr    prices  ┐                    analyze.py    ───────► read-fundamentals
 scrape_yahoo   snapshot├─► store.py ─► finance.db ─► valuation.py+report.py ─► value-company
-scrape_edgar   stmts   │                    industry.py   ───────► map-industry
-scrape_filings text    │                                          company-data (refresh)
+scrape_finviz  fix ▲    │                    industry.py   ───────► map-industry
+scrape_edgar   stmts   │                                          company-data (refresh)
+scrape_filings text    │
 scrape_news    news    ┘
 scrape_ibkr_account ─► account summary
+  (scrape_finviz corrects the few snapshot fields Yahoo serves corrupt)
         └─ orchestrated daily by update.py + run_daily.sh, watched by health_check.py
 ```
 
 ## Layout (grouped by role — files are flat at repo root)
-- **Collection:** `scrape_ibkr.py` (prices), `scrape_yahoo.py` (fundamentals snapshot + fallback prices), `scrape_edgar_financials.py` (multi-year SEC statements), `scrape_filings.py` (10-K/10-Q/8-K text), `scrape_news.py` (news), `scrape_ibkr_account.py` (portfolio/account)
+- **Collection:** `scrape_ibkr.py` (prices), `scrape_yahoo.py` (fundamentals snapshot + fallback prices), `scrape_finviz.py` (correction layer: overrides the snapshot fields Yahoo serves corrupt — book value, P/B, EV/EBITDA — plus adds ROIC/enterprise value), `scrape_edgar_financials.py` (multi-year SEC statements), `scrape_filings.py` (10-K/10-Q/8-K text), `scrape_news.py` (news), `scrape_ibkr_account.py` (portfolio/account)
 - **Storage:** `store.py` (schema + all DB helpers — the core), `migrate_schema.py` (one-time migration), `industries.json` (industry config), `finance.db` (gitignored, ~740 MB)
 - **Analysis (read-only engines):** `analyze.py` (fundamental health), `valuation.py` (intrinsic value: DCF/CAPM/WACC/reverse-DCF/comps/scenarios), `report.py` (editable Excel model), `industry.py` (peer comparison)
 - **Skills** (`.claude/skills/`): `company-data`, `read-fundamentals`, `value-company`, `map-industry`
 - **Automation:** `update.py` (smart-cadence orchestrator), `run_daily.sh` (launchd entry), `setup_automation.sh` (installs the agent), `health_check.py` (connectivity + freshness + email alerts), `dashboard.py` (local web UI), `.github/workflows/daily-scrape.yml`
-- **Learning/journals:** `CFA_TRADING_CURRICULUM.md` (CFA↔trading study track), `LEARNING_LOG.md` (traceable progress), `CFA_PRACTICE_REVIEW.md` (running tracker of official-site practice: misses, terms, weak spots), `PHILOSOPHY.md` (investing principles), `investment/` (long-term "book"), `trade/` (active-trading "book"). CFA Level I *practice questions* are done on the official CFA website; only the review tracker lives in-repo.
+- **Learning/journals:** `CFA_TRADING_CURRICULUM.md` (CFA↔trading study track), `LEARNING_LOG.md` (traceable progress), `CFA_PRACTICE_REVIEW.md` (running tracker of official-site practice: misses, terms, weak spots), `HOW_TO_READ_STATEMENTS.md` (worked guide to the 3 statements, real MSFT FY2025 numbers), `PHILOSOPHY.md` (investing principles), `investment/` (long-term "book"), `trade/` (active-trading "book"). CFA Level I *practice questions* are done on the official CFA website; only the review tracker lives in-repo.
 
 ## How to run
 ```bash
@@ -43,14 +45,16 @@ python industry.py  --industry Semiconductors   # peer map (or --company NVIDIA)
 # Data
 python update.py                    # smart refresh (prices daily, fundamentals 14d, filings 7d, news 2d)
 python scrape_edgar_financials.py --company "<Name>"   # backfill statement history
+python scrape_finviz.py --company "<Name>"   # correct Yahoo's corrupt snapshot fields (auto-run after fundamentals)
 python health_check.py --dry-run    # status of every source (no email)
 ```
 
 ## Data model (`finance.db`)
 - **Instrument-centric:** `companies` is a **VIEW** over `instruments` (insert/update via triggers). Asset classes: stock, etf, fund, bond, reit, commodity, crypto, index, cash, plus **`account`** (a pseudo-class).
-- **`metrics`** = `(company_id, metric, period, value, unit, source)`. Two sources, kept distinct on purpose:
+- **`metrics`** = `(company_id, metric, period, value, unit, source)`. Three sources, kept distinct on purpose:
   - `source='SEC/EDGAR'` → multi-year **statement trend**, `period='FY2024'…` (revenue, net_income, free_cash_flow, total_assets/equity, shares…)
   - `source='Yahoo'` → **current snapshot** of market ratios, `period` a date like `'2026-07-01'` (pe_ratio, roe, gross_margin, beta, market_cap…)
+  - `source='Finviz'` → **correction layer** over the Yahoo snapshot: only the fields Yahoo serves corrupt (`book_value_per_share`, `pb_ratio`, `ev_ebitda`) plus `enterprise_value`/`roic`/`peg_ratio`. `analyze.snapshot()` **prefers Finviz over Yahoo**, so engines read the corrected value automatically; everything else stays on Yahoo. Stocks/REITs only (ETFs/ADRs skipped).
 - **`prices`** = OHLCV per `(instrument_id, date)`, `source` IBKR (primary) or Yahoo (fallback).
 - **`industries` + `company_industries`** = **23 thematic industries** (~11 names each: Semiconductors, AI Infrastructure, Defense & Space…). **Not GICS.**
 - `filings` (full text), `news` (full-text articles).
@@ -60,7 +64,7 @@ python health_check.py --dry-run    # status of every source (no email)
 - **Analysis engines are read-only**; collectors upsert idempotently (keyed by company+metric+period or company+url), so re-runs never duplicate.
 - **EDGAR series = trend; Yahoo snapshot = current.** Keep them separate; don't mix a snapshot value into a trend.
 - **Foreign/ADR names** (TSM, ASML, ARM…) have no US 10-K → no EDGAR fundamentals (show `-`); value/compare them on multiples only.
-- **Yahoo snapshot has known bad points** (e.g. `dividend_yield` corrupt; margins/ROE stored in percent-form while multiples are plain numbers). Treat as-stored; don't over-trust a single value. (Root-cause fix tracked separately in `scrape_yahoo.py`.)
+- **Yahoo snapshot has known bad points** (e.g. `dividend_yield` corrupt; `book_value_per_share`/`enterprise_value` corrupt for some names like ASML → garbage P/B & EV/EBITDA; margins/ROE stored in percent-form while multiples are plain numbers). Treat as-stored; don't over-trust a single value. The book-value/P/B/EV-EBITDA corruption is **corrected by `scrape_finviz.py`** (Finviz overrides Yahoo on those fields via `analyze.snapshot()`); the remaining Yahoo quirks are still tracked in `scrape_yahoo.py`.
 - **IBKR ticker quirks:** IBKR uses a space for share classes — `BRK-B → "BRK B"` via `IBKR_SYMBOL_MAP` in `scrape_ibkr.py` (stored ticker stays `BRK-B`).
 - **`PORTFOLIO`** is a pseudo-instrument (`asset_class='account'`) holding IBKR account-summary metrics (netliquidation, cash…) — not a security; the price scraper skips it.
 - **Secrets** (SEC_IDENTITY, SMTP creds, API keys) live in `.env` (gitignored). Never commit them.

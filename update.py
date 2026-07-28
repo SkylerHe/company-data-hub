@@ -182,6 +182,10 @@ def main():
             "source venv/bin/activate && python scrape_yahoo.py",
             "Updating Yahoo fundamentals"
         )
+        results['finviz'] = run_command(
+            "source venv/bin/activate && python scrape_finviz.py",
+            "Correcting snapshot fields from Finviz"
+        )
         print_summary(start_time, results)
         return
 
@@ -203,9 +207,17 @@ def main():
             "source venv/bin/activate && python scrape_yahoo.py",
             "Updating Yahoo fundamentals + earnings dates"
         )
+        # Finviz correction layer: runs on the same cadence as fundamentals since
+        # it overwrites the fields Yahoo serves corrupt (book value, P/B, EV/EBITDA)
+        # in that same snapshot. See scrape_finviz.py / analyze.snapshot().
+        results['finviz'] = run_command(
+            "source venv/bin/activate && python scrape_finviz.py",
+            "Correcting snapshot fields from Finviz"
+        )
     else:
         print("✓ Fundamentals are up to date (updated < 14 days ago)\n")
         results['fundamentals'] = None
+        results['finviz'] = None
 
     # 3. Filings (weekly = 7 days)
     if args.force_all or needs_update('SEC', 7):

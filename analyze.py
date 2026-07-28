@@ -63,13 +63,20 @@ def series(db, company: str, metric: str, source: str = EDGAR) -> dict:
 
 
 def snapshot(db, company: str, metric: str) -> float | None:
-    """Latest Yahoo snapshot value for a metric (most recent period)."""
+    """Latest snapshot value for a metric.
+
+    Prefers a Finviz value over Yahoo when one exists: Finviz is our correction
+    layer for the fields Yahoo serves corrupt (book_value_per_share, pb_ratio,
+    ev_ebitda — see scrape_finviz.py). Finviz only writes that narrow set, so for
+    every other metric this transparently falls back to the newest Yahoo row.
+    """
     row = db.execute(
         """
         SELECT value FROM metrics m
         JOIN instruments i ON i.id = m.company_id
-        WHERE i.name = ? AND m.metric = ? AND m.source = 'Yahoo'
-        ORDER BY period DESC LIMIT 1
+        WHERE i.name = ? AND m.metric = ? AND m.source IN ('Finviz', 'Yahoo')
+        ORDER BY CASE m.source WHEN 'Finviz' THEN 0 ELSE 1 END, period DESC
+        LIMIT 1
         """,
         (company, metric),
     ).fetchone()
