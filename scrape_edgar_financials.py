@@ -134,19 +134,46 @@ def fiscal_period(filing) -> str | None:
 _FX_CACHE = {}
 
 
-def reporting_currency(cik, identity):
-    """Detect a filer's reporting currency from SEC XBRL facts (e.g. ASML → EUR).
+# Raw XBRL concepts to backfill when edgartools' standardizer misses a metric on
+# a foreign (IFRS) filer — e.g. TSMC files under ifrs-full:, so its capex and
+# total assets never map. Names are namespace-qualified (by_concept needs it) and
+# tried in priority order: us-gaap first, then the IFRS equivalents. FCF is then
+# derived as OCF − capex.
+_XBRL_FALLBACK_CONCEPTS = {
+    "capital_expenditures": [
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:PaymentsToAcquireProductiveAssets",
+        "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",  # TSMC
+        "ifrs-full:PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsAndOtherAssets",
+    ],
+    "total_assets": ["us-gaap:Assets", "ifrs-full:Assets"],
+}
 
-    Reads the currency the balance-sheet totals are denominated in (unit keys in
-    companyfacts are ISO codes like 'EUR'/'USD', vs 'shares'). Defaults to 'USD'
-    on any failure — US filers report in USD anyway."""
+
+def _missing(v):
+    """A metric that needs backfilling: absent, non-numeric, or a bogus zero
+    (edgartools returns 0.0 for tags it can't map, e.g. TSMC's total_assets)."""
+    return not isinstance(v, (int, float)) or v == 0
+
+
+def load_companyfacts(cik, identity):
+    """Fetch a filer's full SEC XBRL companyfacts once. Returns the dict or None."""
     url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{int(cik):010d}.json"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": identity})
-        data = json.load(urllib.request.urlopen(req, timeout=20))
+        return json.load(urllib.request.urlopen(req, timeout=25))
     except Exception:
+        return None
+
+
+def currency_from_facts(facts):
+    """Reporting currency from companyfacts (e.g. ASML → EUR, TSMC → TWD).
+
+    Reads the ISO unit the balance-sheet totals are denominated in. Defaults to
+    'USD' — US filers report in USD anyway."""
+    if not facts:
         return "USD"
-    for taxo in data.get("facts", {}).values():
+    for taxo in facts.get("facts", {}).values():
         for concept in ("Assets", "Liabilities", "StockholdersEquity"):
             fact = taxo.get(concept)
             if not fact:
@@ -155,6 +182,48 @@ def reporting_currency(cik, identity):
                 if len(unit) == 3 and unit.isalpha():  # ISO currency code
                     return unit
     return "USD"
+
+
+def filing_xbrl_value(xbrl, concept_names, year, currency):
+    """Pull one annual value for a concept from a filing's OWN XBRL — unlike the
+    aggregated companyfacts API, this is never SEC-lagged, so it has the newest
+    fiscal year too. Filtered to the reporting currency, non-dimensioned, and the
+    fiscal year (duration facts date on period_end, instant/balance-sheet facts on
+    period_instant). Tries concept_names in priority order. Returns float or None.
+
+    NOTE: each concept needs a FRESH query — the query builder chains filters, so
+    reusing one object would AND the concepts together and match nothing."""
+    if xbrl is None or year is None:
+        return None
+    cur, ystr = currency.lower(), str(year)
+    for name in concept_names:
+        try:
+            df = xbrl.facts.query().by_concept(name).to_dataframe()
+        except Exception:
+            continue
+        if df is None or len(df) == 0:
+            continue
+        for _, r in df.iterrows():
+            if str(r.get("unit_ref", "")).lower() != cur:
+                continue
+            if r.get("is_dimensioned"):
+                continue
+            date = ""
+            for col in ("period_end", "period_instant"):
+                d = r.get(col)
+                if d is not None and str(d) not in ("nan", "NaT", ""):
+                    date = str(d)
+                    break
+            if not date.startswith(ystr):
+                continue
+            v = r.get("numeric_value")
+            if v is None:
+                v = r.get("value")
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+    return None
 
 
 def usd_fx_rate(currency):
@@ -237,8 +306,10 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
 
     # Foreign filers report in their home currency (ASML → EUR); convert monetary
     # line items to USD so downstream valuation isn't mixing currencies against a
-    # USD price. Share counts stay as-is.
-    currency = reporting_currency(company_obj.cik, os.environ.get("SEC_IDENTITY", ""))
+    # USD price. Share counts stay as-is. We also reuse companyfacts to backfill
+    # metrics edgartools' standardizer misses on IFRS filers (TSMC's capex etc.).
+    facts = load_companyfacts(company_obj.cik, os.environ.get("SEC_IDENTITY", ""))
+    currency = currency_from_facts(facts)
     fx = usd_fx_rate(currency)
     if currency != "USD":
         if fx:
@@ -256,6 +327,26 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
             print(f"    ! {period}: could not parse financials ({type(e).__name__})")
             result["errors"] += 1
             continue
+
+        # Backfill tags edgartools missed (IFRS filers) from the filing's own XBRL,
+        # in native currency so the conversion step below treats them like every
+        # other line. Only touch the filing's XBRL if something's actually missing
+        # (US filers rarely are). Then derive FCF = OCF − capex if still missing.
+        year = int(period[2:]) if period[2:].isdigit() else None
+        need = [k for k in _XBRL_FALLBACK_CONCEPTS if _missing(metrics.get(k))]
+        if need and year:
+            try:
+                fx_xbrl = filing.xbrl()
+            except Exception:
+                fx_xbrl = None
+            for std_key in need:
+                v = filing_xbrl_value(fx_xbrl, _XBRL_FALLBACK_CONCEPTS[std_key], year, currency)
+                if v is not None:
+                    metrics[std_key] = v
+        if _missing(metrics.get("free_cash_flow")):
+            ocf, capex = metrics.get("operating_cash_flow"), metrics.get("capital_expenditures")
+            if not _missing(ocf) and not _missing(capex):
+                metrics["free_cash_flow"] = ocf - abs(capex)
 
         result["filings"] += 1
         for key, (metric_name, unit) in METRIC_MAP.items():
