@@ -147,6 +147,17 @@ _XBRL_FALLBACK_CONCEPTS = {
         "ifrs-full:PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsAndOtherAssets",
     ],
     "total_assets": ["us-gaap:Assets", "ifrs-full:Assets"],
+    # Weighted-average share counts. edgartools' standardizer misses these on some
+    # filers (banks like Capital One), which also breaks the basic-vs-diluted
+    # dilution check. These are counts (XBRL unit 'shares'), not a currency.
+    "shares_outstanding_basic": [
+        "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+        "ifrs-full:WeightedAverageShares",
+    ],
+    "shares_outstanding_diluted": [
+        "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
+        "ifrs-full:AdjustedWeightedAverageShares",
+    ],
 }
 
 
@@ -184,18 +195,19 @@ def currency_from_facts(facts):
     return "USD"
 
 
-def filing_xbrl_value(xbrl, concept_names, year, currency):
+def filing_xbrl_value(xbrl, concept_names, year, unit_ref):
     """Pull one annual value for a concept from a filing's OWN XBRL — unlike the
     aggregated companyfacts API, this is never SEC-lagged, so it has the newest
-    fiscal year too. Filtered to the reporting currency, non-dimensioned, and the
-    fiscal year (duration facts date on period_end, instant/balance-sheet facts on
+    fiscal year too. Filtered to `unit_ref` (the reporting currency for monetary
+    values, or 'shares' for share counts), non-dimensioned, and the fiscal year
+    (duration facts date on period_end, instant/balance-sheet facts on
     period_instant). Tries concept_names in priority order. Returns float or None.
 
     NOTE: each concept needs a FRESH query — the query builder chains filters, so
     reusing one object would AND the concepts together and match nothing."""
     if xbrl is None or year is None:
         return None
-    cur, ystr = currency.lower(), str(year)
+    want, ystr = unit_ref.lower(), str(year)
     for name in concept_names:
         try:
             df = xbrl.facts.query().by_concept(name).to_dataframe()
@@ -204,7 +216,7 @@ def filing_xbrl_value(xbrl, concept_names, year, currency):
         if df is None or len(df) == 0:
             continue
         for _, r in df.iterrows():
-            if str(r.get("unit_ref", "")).lower() != cur:
+            if str(r.get("unit_ref", "")).lower() != want:
                 continue
             if r.get("is_dimensioned"):
                 continue
@@ -340,7 +352,11 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
             except Exception:
                 fx_xbrl = None
             for std_key in need:
-                v = filing_xbrl_value(fx_xbrl, _XBRL_FALLBACK_CONCEPTS[std_key], year, currency)
+                # monetary metrics filter on the reporting currency; share counts
+                # on the 'shares' XBRL unit (they carry no currency).
+                is_count = METRIC_MAP.get(std_key, (None, ""))[1] == "count"
+                target = "shares" if is_count else currency
+                v = filing_xbrl_value(fx_xbrl, _XBRL_FALLBACK_CONCEPTS[std_key], year, target)
                 if v is not None:
                     metrics[std_key] = v
         if _missing(metrics.get("free_cash_flow")):
