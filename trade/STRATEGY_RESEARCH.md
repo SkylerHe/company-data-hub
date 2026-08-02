@@ -21,6 +21,9 @@ Hard-won lessons that matter regardless of the strategy:
    so holding cash to wait for dips is a drag. Most "clever" strategies lose to it on return.
 3. **Judge on risk-adjusted return (Sharpe) + max drawdown — not raw return.** Raw return
    hid that relative-dips matched/beat buy-hold once risk was accounted for.
+3b. **Win rate is a trap — judge EXPECTANCY** = win% × avg-win + loss% × avg-loss (PHILOSOPHY
+   #18). A ~50% win rate with big losses and small wins is a *losing* strategy. *(Fixed-dip
+   beat B&H 48% of the time but had −17% expectancy: small wins, big losses.)*
 4. **Test assumption sensitivity.** One assumption can flip the conclusion. *(Cash yield
    0% → 4% flipped relative-dips from Sharpe-tied to Sharpe-ahead.)*
 5. **Beware overfitting / curve-fitting.** Round, fixed, simple rules beat rules optimized
@@ -74,6 +77,22 @@ Hard-won lessons that matter regardless of the strategy:
 | Fixed-dollar | 50.4% | 0.51 | −16.5% | −60.6% | 43% |
 | Relative | 99.4% | **0.81** | −31.2% | −62.7% | 48% |
 
+**Results — win/loss margins (expectancy):** *the sharpest finding — win rate lies*
+| Strategy | Win rate vs B&H | Avg WIN margin | Avg LOSS margin | Overall avg (expectancy) |
+|---|---|---|---|---|
+| SPY fixed | 48% | +23% | −54% | **−17%** |
+| SPY relative | 48% | +10% | −20% | **−5%** |
+| QQQ fixed | 43% | +23% | −88% | **−41%** |
+| QQQ relative | 48% | +12% | −26% | **−8%** |
+
+- **Win rate is misleading:** fixed "beats" B&H ~48% of the time but wins *small* (+23%) and
+  loses *big* (−54%) → **expectancy −17%** — a losing strategy despite a coin-flip win rate.
+- Fixed and relative have **near-identical win rates (48%)** but very different expectancy
+  (−17% vs −5%) → **win rate can't tell good from bad; expectancy can.**
+- Why the asymmetry: dip-buying wins *small* in bear windows (deploys lower than a top-buying
+  B&H) but loses *big* in bull windows (sits in cash, misses the whole run). Markets rise more
+  often → negative expectancy.
+
 **Verdict:**
 - **Buy-and-hold wins raw return** and ~52% of windows. *You don't beat the market by
   holding cash.*
@@ -89,6 +108,9 @@ Hard-won lessons that matter regardless of the strategy:
 - The single window **reversed** under rigorous testing → the overfitting lesson, lived.
 - The 4% cash assumption **flipped** the Sharpe result → assumption sensitivity is real.
 - Dip-buying = **risk/return trade** (lower drawdown, lower return), not a free lunch.
+- **Win rate ≠ quality.** Fixed-dip "beat" B&H 48% of windows yet has −17% expectancy — small
+  wins, big losses. Judge **expectancy** (size × frequency), never the beat-rate. Win rate
+  couldn't even distinguish fixed (−17%) from relative (−5%); expectancy did.
 
 **Caveats / next steps:**
 - Overlapping windows (effective sample < 259); Sharpe uses rf=0 (excess-return Sharpe would
