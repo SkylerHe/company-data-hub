@@ -112,10 +112,41 @@ Hard-won lessons that matter regardless of the strategy:
   wins, big losses. Judge **expectancy** (size × frequency), never the beat-rate. Win rate
   couldn't even distinguish fixed (−17%) from relative (−5%); expectancy did.
 
-**Caveats / next steps:**
-- Overlapping windows (effective sample < 259); Sharpe uses rf=0 (excess-return Sharpe would
-  refine it); one-shot deployment (not a recurring grid); no transaction costs.
-- To do: cash-yield sensitivity sweep (0/2/4/5%); recurring-grid variant; excess-return Sharpe.
+**Caveats — read before trusting S1:**
+
+*Statistical robustness (hold the numbers loosely):*
+- **Overlapping windows** — 259 windows overlap heavily; ~25y holds only **~5 independent**
+  5-yr periods. The relative-dips Sharpe edge (0.82 vs 0.76) is **likely within noise** — not proven.
+- **One market, one era** — US SPY/QQQ, 2000–26, a period US equities were *exceptional*. May
+  not hold for Japan (30y below its 1989 peak), EM, or a different future. **Dip-buying assumes
+  the index always recovers — true for the US so far, not a law.**
+- **Idealized mechanics** — rf=0 in Sharpe; no taxes/slippage; constant 4% cash (reality: ~0%
+  in 2009–21, ~5% in 2023–24 — swings the dip strategies a lot).
+
+*Behavioral / execution (the real gap):*
+- The backtest assumes **perfect, emotionless execution.** But **buying into a −15% crash** is
+  when every instinct screams sell — most people freeze or capitulate right when the rule says buy.
+- **Cash drag is agonizing** — sitting in cash for years during a bull tests discipline; many
+  abandon the strategy right before the dip comes. **A strategy you can't execute has expectancy 0.** (PHILOSOPHY #17, #19)
+
+*Scope — what S1 actually is:*
+- **An ENTRY technique, not an edge.** It governs *how to deploy a lump sum*, not how to beat the
+  market. After the 3 tranches deploy, it's **just buy-and-hold.** Real use = **regret/drawdown
+  reduction**, not alpha.
+
+*Failure modes:*
+- **Crash past level 3** (−15%+) → out of tranches, fully deployed, underwater, no plan for a −40% bear.
+- **Dipless bull** (e.g. 2013–19) → dips never trigger, sit in cash, badly lag (the −54% loss case).
+- **Abandonment** — quitting emotionally at the worst time.
+
+**Next steps / to-do:**
+- Compare vs **DCA** (time-based) — the more practical rival for deploying cash than lump-sum.
+- Cash-yield **sensitivity sweep** (0/2/4/5%); **excess-return Sharpe**; recurring-**grid** variant.
+- Regime breakdown (bull vs bear vs sideways); other assets/eras for robustness.
+
+**Meta-takeaway:** the real value of S1 was learning the **method** (test the distribution, judge
+on Sharpe + expectancy, check assumption sensitivity, distrust a winning backtest) — that transfers
+to every future strategy. S1 fooled us first (the +115% window), then taught us to catch it.
 
 **Code:** [`backtests/dip_backtest.py`](backtests/dip_backtest.py) (single window),
 [`backtests/dip_rigorous.py`](backtests/dip_rigorous.py) (rolling windows). Reproducible —
