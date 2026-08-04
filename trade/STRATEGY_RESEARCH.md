@@ -30,6 +30,12 @@ Hard-won lessons that matter regardless of the strategy:
    to past data. Don't tune levels to make history look good.
 6. **Relative (%) rules > fixed-dollar rules** for a long-term, upward-trending asset —
    fixed prices go stale as the index climbs.
+7. **For a contribution stream, measure money-weighted (IRR), not (final ÷ contributed).**
+   Each dollar is invested for a different length of time; IRR weights by that. It can even
+   exceed the asset's buy-hold CAGR when the boom is back-loaded (more capital was at work
+   in the high-return years). *(S2: DCA IRR 18.0% > QQQ CAGR 15.3%.)* And note: **regular
+   contributions are already automatic dip-buying** — you buy every crash — so an explicit
+   dip overlay adds little on top.
 
 ---
 
@@ -151,6 +157,85 @@ to every future strategy. S1 fooled us first (the +115% window), then taught us 
 **Code:** [`backtests/dip_backtest.py`](backtests/dip_backtest.py) (single window),
 [`backtests/dip_rigorous.py`](backtests/dip_rigorous.py) (rolling windows). Reproducible —
 run from repo root with the venv active.
+
+---
+
+### S2 — DCA + dip-buying on a monthly income stream (QQQ) vs pure DCA
+- **Status:** Backtested (historical only). **Not deployed.**
+- **Date:** 2026-08-04
+- **Type:** Accumulation / systematic deployment of a *recurring* contribution stream.
+
+**The real question (vs S1):** S1 deployed one fixed lump sum. This is the
+working-person version — **$50k arrives every month; how do you put an ongoing
+income stream to work?**
+
+**Hypothesis:** layering a dip-buying reserve + a "deploy idle cash" cap on top of
+plain monthly auto-invest beats plain auto-invest.
+
+**The rules:**
+- Universe: **QQQ**, 2005→today (~21.6 yrs, 260 monthly contributions, **$13.0M total in**).
+- **$50k arrives at the start of each month.**
+- **Base DCA:** buy **50% of each paycheck** immediately (always in market).
+- **Dip overlay:** hold the rest as reserve; deploy an extra tranche at **−10% / −20%
+  below the running peak** (each fires once per drawdown, resets on a new high) — the
+  S1 "relative" mechanic.
+- **Cash cap:** never let idle reserve exceed **K months** of pay; deploy the excess
+  (the "cash piled up → raise the DCA" rule, made mechanical). Swept **K = 1/2/3/6**.
+- Idle cash earns **4%/yr**. Benchmark: **pure DCA** — 100% of each paycheck into QQQ
+  the day it arrives.
+- Judged on **IRR (money-weighted annual return)** + **max drawdown** — not
+  (final ÷ contributed), which lies when money arrives over 21 years.
+
+**Results (QQQ 2005–2026, 4% idle cash):**
+| Strategy | Final $ | IRR/yr | Max DD | Dip buys | Avg idle $ |
+|---|---|---|---|---|---|
+| Pure DCA (100%) | $126.4M | **18.0%** | −43.1% | — | $0 |
+| S2 cap = 1 mo | $126.1M | 18.0% | −42.1% | 25 | $45k |
+| S2 cap = 2 mo | $125.4M | 17.9% | −41.1% | 25 | $94k |
+| S2 cap = 3 mo | $124.8M | 17.9% | −40.1% | 25 | $143k |
+| S2 cap = 6 mo | $122.9M | 17.8% | −37.2% | 25 | $287k |
+
+*(Context: QQQ buy-hold CAGR over the window = 15.3%; the boom was **back-loaded** —
+first-half 10.6%/yr, second-half 20.1%/yr.)*
+
+**Verdict:**
+- **Pure DCA wins again — by more than in S1.** Every reserve/dip/cap variant gave up
+  return; none beat plain auto-invest. *You don't beat the market by holding cash.*
+- **The tradeoff is real but tiny.** More reserve (higher cap) → slightly lower IRR,
+  smaller drawdown. Cap = 6 mo trimmed drawdown ~6 pts (−43% → −37%) but cost 0.2 pts of
+  IRR and parked ~$287k idle on average — a **smoother ride, not more money.**
+- **Not a deployable edge.** If drawdown-smoothing is genuinely wanted, a small cap
+  (2–3 mo) buys a few points cheaply — but the dip-timing itself adds no return.
+
+**Key lessons:**
+1. **Monthly DCA already IS automatic dip-buying.** You buy every month — *including every
+   crash* — so the contribution stream already averages you in at low prices. An explicit
+   dip reserve on top barely helps because the base is already catching the dips. That's
+   *why* S2's effect is even smaller than S1's (a static lump sum had no ongoing buying).
+2. **Money-weighted (IRR) ≠ the asset's buy-hold CAGR.** DCA IRR 18.0% > QQQ CAGR 15.3%
+   — because the boom was back-loaded and DCA had more capital deployed during the
+   high-return second half. IRR weights each dollar by time invested; when late years pay
+   more and contributions grow, IRR > start-to-end CAGR. (Use **IRR** for "how did *my
+   account* do"; **time-weighted** for "how good is the *strategy* itself.")
+3. **Ongoing contributions cushion drawdown.** −43% here vs a lump-sum QQQ's ~−53% in 2008
+   — new cash keeps buying through the crash. The reported DD reads milder than a
+   lump-sum DD; don't compare the two head-to-head.
+
+**Caveats:**
+- **Same era/survivorship bias as S1** — 2005–26 US tech was exceptional (QQQ 21.5×).
+  18%/yr is *not* a forward expectation; a flat or Japan-like era looks nothing like this.
+- **Idealized** — perfect monthly execution, no taxes/slippage, constant 4% idle-cash
+  yield (really swung 0–5%), one asset, **one path** (not rolling windows like S1's
+  rigorous pass — a to-do).
+- **Behavioral gap** — still assumes you keep buying (and deploy reserve into crashes)
+  without flinching; the real failure mode is *stopping contributions* in a bear market.
+
+**Next steps:** rolling-window version (like `dip_rigorous.py`) for a distribution not one
+path; sweep the base-DCA fraction; cash-yield sensitivity; the pure-DCA benchmark already
+confirms "deploy it all, immediately" is best here.
+
+**Code:** [`backtests/dca_dip_backtest.py`](backtests/dca_dip_backtest.py). Standalone
+(yfinance) — run from repo root with the venv active.
 
 ---
 

@@ -469,42 +469,9 @@ def get_prices(db, instrument, start=None, end=None, field="close"):
     return db.execute(q, args).fetchall()
 
 
-def add_filing(db, company, type, url, date, title, content) -> int | None:
-    """Add a filing. `content` is the full original text, stored verbatim."""
-    cid = company_id(db, company)
-    cur = db.execute(
-        """
-        INSERT OR IGNORE INTO filings
-            (company_id, type, url, date, title, content, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (cid, type, url, date, title, content, _now()),
-    )
-    db.commit()
-    return cur.lastrowid if cur.rowcount else None
-
-
-def set_summary(db, company, summary) -> None:
-    """Store the distilled per-company dossier (populated later, by enrichment)."""
-    cid = company_id(db, company)
-    db.execute(
-        "UPDATE instruments SET summary = ?, summary_updated_at = ? WHERE id = ?",
-        (summary, _now(), cid),
-    )
-    db.commit()
-
-
 # ----------------------------------------------------------------------------
 # Watermark — lets daily runs pull only what's new
 # ----------------------------------------------------------------------------
-def get_last_fetched(db, company):
-    cid = company_id(db, company, create=False)
-    if cid is None:
-        return None
-    row = db.execute("SELECT last_fetched FROM instruments WHERE id = ?", (cid,)).fetchone()
-    return row[0] if row else None
-
-
 def set_last_fetched(db, company, when=None) -> None:
     cid = company_id(db, company)
     db.execute(
