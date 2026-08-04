@@ -230,9 +230,35 @@ first-half 10.6%/yr, second-half 20.1%/yr.)*
 - **Behavioral gap** — still assumes you keep buying (and deploy reserve into crashes)
   without flinching; the real failure mode is *stopping contributions* in a bear market.
 
+**Extension (2026-08-04) — the base-buy fraction is the real knob, not the cap:**
+
+Two follow-ups located where the actual return/risk tradeoff lives.
+
+*(a) Graduated (dynamic) DCA ratio ≈ the tightest cap.* Replacing the hard cap with a rule
+that raises the buy ratio as the reserve grows (50% at ≤1mo of reserve, 75% at 1–2mo, 100%
+at 2–3mo, 150–200% above) converges to **cap-1mo**: avg reserve $46k, IRR 18.0%, DD −42.1%.
+Smooth-adjust and hard-cut land in the *same place* — any rule that refuses to let cash pile
+up necessarily behaves like near-pure-DCA.
+
+*(b) Base-buy fraction sweep 30/50/70/100% (no cap) — the hidden cost, exposed:*
+| Base buy % | Avg idle reserve | Dip $ ever used | IRR | Max DD | Final |
+|---|---|---|---|---|---|
+| 30% | $5.48M | $1.25M | 12.5% | −23.5% | $60M |
+| 50% | $3.72M | $1.25M | 14.8% | −28.8% | $81M |
+| 70% | $1.96M | $1.25M | 16.5% | −32.8% | $103M |
+| 100% (=pure DCA) | $0 | — | 18.0% | −43.1% | $127M |
+
+**The sharpest finding of S2:** dip-buying absorbs only **$1.25M over 21 years, no matter how
+much reserve is held** — so any reserve beyond ~$1.25M is pure cash drag. Dropping the base
+fraction 100%→30% costs **5.5 pts of IRR** (18.0→12.5%, −$67M final) to buy ~20 pts of
+drawdown reduction — a *steep*, real return-for-smoothness trade. The earlier cap sweep only
+looked "free" because the cap force-deploys the reserve (~100% invested); once cash is
+genuinely withheld (low base %, no cap), the cost is severe. **Reinforced: in a mostly-rising
+market, deploying beats waiting — dips are too rare to justify holding much cash.**
+
 **Next steps:** rolling-window version (like `dip_rigorous.py`) for a distribution not one
-path; sweep the base-DCA fraction; cash-yield sensitivity; the pure-DCA benchmark already
-confirms "deploy it all, immediately" is best here.
+path; cash-yield sensitivity (0/2/4/5%); regime breakdown (bull vs bear vs sideways) — the
+base-fraction sweep (done) already shows "deploy it all, immediately" wins this window.
 
 **Code:** [`backtests/dca_dip_backtest.py`](backtests/dca_dip_backtest.py). Standalone
 (yfinance) — run from repo root with the venv active.

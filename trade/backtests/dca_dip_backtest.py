@@ -44,8 +44,20 @@ def load_qqq():
     return px, is_month_start, years, dates
 
 
-def run(px, is_month_start, mode, cap_months=None):
-    """mode 'dca' = pure benchmark; 's2' = base DCA + dip overlay + cash cap.
+def dca_ratio(reserve_months):
+    """Graduated base-DCA ratio: deploy more of each paycheck as idle reserve grows.
+    (The smooth version of the hard cash cap — the 'raise the DCA when cash piles up' rule.)"""
+    if reserve_months <= 1: return 0.50
+    if reserve_months <= 2: return 0.75
+    if reserve_months <= 3: return 1.00
+    if reserve_months <= 4: return 1.50
+    return 2.00
+
+
+def run(px, is_month_start, mode, cap_months=None, base_frac=BASE_FRAC):
+    """mode 'dca' = deploy 100% each month (benchmark);
+       's2'  = base DCA (base_frac) + dip overlay + optional cash cap;
+       'dyn' = dip overlay + a graduated DCA ratio that rises with the reserve.
     Returns (value_path, contribution_cashflows, n_dip_buys, avg_idle_cash)."""
     n = len(px)
     cash = 0.0; shares = 0.0; val = np.empty(n)
@@ -61,10 +73,13 @@ def run(px, is_month_start, mode, cap_months=None):
             cashflows.append((t, -CONTRIB))
             if mode == "dca":
                 shares += cash / p; cash = 0.0            # deploy the whole paycheck now
-            else:
-                buy = min(cash, BASE_FRAC * CONTRIB)      # base DCA: fixed slice now
+            elif mode == "dyn":
+                buy = min(cash, dca_ratio(cash / CONTRIB) * CONTRIB)   # graduated ratio
                 shares += buy / p; cash -= buy
-        if mode == "s2":
+            else:
+                buy = min(cash, base_frac * CONTRIB)      # base DCA: fixed slice now
+                shares += buy / p; cash -= buy
+        if mode in ("s2", "dyn"):
             if p >= peak:                                 # new high -> reset the dip ladder
                 peak = p; fired = [False] * len(DIP_LEVELS)
             for i, lv in enumerate(DIP_LEVELS):           # dip buys from reserve
@@ -73,7 +88,7 @@ def run(px, is_month_start, mode, cap_months=None):
                     if buy > 0:
                         shares += buy / p; cash -= buy; n_dip += 1
                     fired[i] = True
-            if cap and cash > cap:                        # cash cap: deploy idle excess
+            if mode == "s2" and cap and cash > cap:       # cash cap: deploy idle excess
                 excess = cash - cap
                 shares += excess / p; cash -= excess
         cash_sum += cash
@@ -117,6 +132,19 @@ def main():
     for k in [1, 2, 3, 6]:
         val, cf, ndip, avgc = run(px, ims, "s2", cap_months=k)
         print(f"{'S2 cap=' + str(k) + 'mo':<20}{val[-1]:>14,.0f}{xirr_annual(cf, years, val[-1]):>8.1%}"
+              f"{max_drawdown(val):>9.1%}{ndip:>10}{avgc:>12,.0f}")
+    # graduated (dynamic) DCA ratio — converges to the tightest cap
+    val, cf, ndip, avgc = run(px, ims, "dyn")
+    print(f"{'Dynamic ratio':<20}{val[-1]:>14,.0f}{xirr_annual(cf, years, val[-1]):>8.1%}"
+          f"{max_drawdown(val):>9.1%}{ndip:>10}{avgc:>12,.0f}")
+
+    # --- base-buy fraction sweep (NO cap): the real knob; reveals the hidden cost ---
+    print(f"\n{'-'*76}\nBase-buy fraction sweep (no cap; the un-bought rest waits in reserve for dips)"
+          f"\n{'-'*76}")
+    print(f"{'Base buy %':<20}{'Final $':>14}{'IRR/yr':>9}{'Max DD':>9}{'Dip buys':>10}{'Avg idle$':>12}")
+    for f in [0.30, 0.50, 0.70, 1.00]:
+        val, cf, ndip, avgc = run(px, ims, "s2", cap_months=None, base_frac=f)
+        print(f"{str(int(f * 100)) + '%':<20}{val[-1]:>14,.0f}{xirr_annual(cf, years, val[-1]):>8.1%}"
               f"{max_drawdown(val):>9.1%}{ndip:>10}{avgc:>12,.0f}")
 
     print(f"\n  IRR    = money-weighted annual return (each $ weighted by time invested).")
