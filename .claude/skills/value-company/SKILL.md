@@ -4,7 +4,10 @@ description: >-
   Estimate what a single company is worth and whether today's price offers a
   margin of safety — a multi-method valuation (2-stage DCF, CAPM/WACC, reverse
   DCF, peer-median comps, bear/base/bull scenarios) that ends in a buy / hold /
-  avoid verdict and, on request, an editable Excel model. Trigger on requests
+  avoid verdict and, on request, an editable Excel model. Branches by business
+  type: operating companies (products/services) are valued on free cash flow;
+  banks/financials on ROE & P/B instead, since a bank's FCF is meaningless.
+  Trigger on requests
   like "what's MSFT worth?", "value Nvidia", "is Costco a buy at this price?",
   "run a DCF on Adobe", "build me a valuation model for AAPL". This is valuation,
   not health analysis — for "is this a good business?" use read-fundamentals.
@@ -27,6 +30,19 @@ a fact*. The user is learning — make them understand what drives the number.
   and can only be discussed via comps. Say so rather than forcing a DCF.
 
 ## Steps
+
+### First: classify the business — the method depends on it
+The right valuation method depends on *what kind of company* this is:
+```bash
+sqlite3 finance.db "SELECT name, ticker, sector FROM instruments WHERE ticker='<T>' OR name LIKE '%<q>%';"
+```
+- **Operating company** — sells products/services (Google, Costco, Nvidia, Apple).
+  Value on **Free Cash Flow (FCF)** → follow the DCF steps 1–5 below.
+- **Bank / financial** — a bank, insurer, or lender (Capital One, JPMorgan). **FCF is
+  meaningless** here (no capex→FCF; the business *is* loans and deposits), so the FCF-DCF
+  is nonsense → **skip it and use the "Bank / financial branch" below** (ROE & P/B).
+  Tell by: sector is Financial/Financials, or stored `free_cash_flow` is absent/erratic and
+  the balance sheet is dominated by loans & deposits.
 
 ### 1. Get the computed valuation
 ```bash
@@ -85,6 +101,30 @@ is **live Excel formulas** driven by an editable **Assumptions** sheet (yellow
 cells). Tell the user: change the yellow inputs — WACC, growth, beta — and the
 intrinsic value, upside, and margin of safety recompute. It's the tool for
 *their own* stress-testing, which is the whole point when learning valuation.
+
+### Bank / financial branch — value on ROE & P/B, not FCF
+For banks/insurers, **ignore the FCF-DCF** (it's meaningless — a bank has no capex→FCF; its
+cash flows *are* lending and deposits) and value the equity directly:
+```bash
+python analyze.py  --company "<bank>"     # ROE, P/B, book value, margins
+python industry.py --company "<bank>"     # peer ROE / P/B comparison
+```
+- **ROE (return on equity)** is the engine of a bank's value — earnings ÷ shareholders'
+  equity (its book value / net worth). High *and stable* ROE = quality.
+- **P/B (price-to-book)** is the multiple banks trade on. Anchor: a bank is worth
+  **book value × a justified P/B**, where **justified P/B ≈ (ROE − g) / (cost of equity − g)**.
+  - Rule of thumb: **ROE above cost of equity (~10%) → deserves P/B > 1**; ROE below it →
+    P/B < 1. A 15%-ROE bank at 1.0× book is *cheaper* than an 8%-ROE bank at 1.0× book —
+    same price tag, very different value.
+- **Book / tangible book value per share** — the net worth the P/B multiplies; prefer
+  *tangible* (strip goodwill/intangibles).
+- **Peer cross-check** — is its P/B low *for its ROE* versus other banks? That's the bank
+  version of "cheap."
+- **Durability inputs (if stored)** — net interest margin (NIM), efficiency ratio,
+  charge-offs / non-performing loans, CET1 capital ratio. These decide whether the ROE
+  lasts; say the DB lacks them rather than inventing.
+- **Verdict:** judge price vs justified P/B and vs peer ROE/P/B — never an FCF margin of
+  safety. If `valuation.py` prints a DCF for a bank, disregard it.
 
 ## Notes
 - **A model, not a fact.** Always frame the output as conditional on the
