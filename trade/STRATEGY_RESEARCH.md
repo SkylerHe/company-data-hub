@@ -1,267 +1,156 @@
 # Strategy Research Log — 🔬 Quant Book
 
-A running log of every trading strategy I research: the **hypothesis, exact rules,
-backtest method, results, verdict, and lessons** — so I can refer back and never
-re-learn the same lesson. Complements the **Trade Journal** (actual bracketed trades),
-the **Investment Journal** (long-term holds), and **PHILOSOPHY.md** (principles).
+Every strategy I research: hypothesis, exact rules, backtest method, results, verdict,
+lessons — so I never re-learn the same lesson. Complements the Trade Journal (bracketed
+trades), Investment Journal (long-term holds), and PHILOSOPHY.md.
 
-**Rule:** a strategy only graduates to real money via **backtest (historical) →
-forward-test (paper) → live**. Never skip a stage.
+**Rule:** a strategy graduates to real money only via **backtest → paper → live**. Never skip a stage.
 
 ---
 
-## Quant methodology principles (reusable — apply to EVERY strategy)
+## Methodology principles (apply to EVERY strategy)
 
-Hard-won lessons that matter regardless of the strategy:
-
-1. **One backtest lies.** Test the *distribution* across many **rolling windows**, not one
-   lucky path. *(A single 2021–26 window made fixed-dollar dips look BEST; across 259
-   windows it was the WORST. Same strategy, opposite conclusion.)*
-2. **Buy-and-hold is the benchmark, and it's brutally hard to beat.** Markets trend up,
-   so holding cash to wait for dips is a drag. Most "clever" strategies lose to it on return.
-3. **Judge on risk-adjusted return (Sharpe) + max drawdown — not raw return.** Raw return
-   hid that relative-dips matched/beat buy-hold once risk was accounted for.
-3b. **Win rate is a trap — judge EXPECTANCY** = win% × avg-win + loss% × avg-loss (PHILOSOPHY
-   #18). A ~50% win rate with big losses and small wins is a *losing* strategy. *(Fixed-dip
-   beat B&H 48% of the time but had −17% expectancy: small wins, big losses.)*
-4. **Test assumption sensitivity.** One assumption can flip the conclusion. *(Cash yield
-   0% → 4% flipped relative-dips from Sharpe-tied to Sharpe-ahead.)*
-5. **Beware overfitting / curve-fitting.** Round, fixed, simple rules beat rules optimized
-   to past data. Don't tune levels to make history look good.
-6. **Relative (%) rules > fixed-dollar rules** for a long-term, upward-trending asset —
-   fixed prices go stale as the index climbs.
-7. **For a contribution stream, measure money-weighted (IRR), not (final ÷ contributed).**
-   Each dollar is invested for a different length of time; IRR weights by that. It can even
-   exceed the asset's buy-hold CAGR when the boom is back-loaded (more capital was at work
-   in the high-return years). *(S2: DCA IRR 18.0% > QQQ CAGR 15.3%.)* And note: **regular
-   contributions are already automatic dip-buying** — you buy every crash — so an explicit
-   dip overlay adds little on top.
+1. **One backtest lies.** Test the *distribution* over many rolling windows, not one path.
+   *(A single 2021–26 window made fixed dips look BEST; across 259 windows, WORST.)*
+2. **Buy-and-hold is brutally hard to beat.** Markets trend up; holding cash to wait for dips is a drag.
+3. **Judge risk-adjusted (Sharpe) + max drawdown, not raw return.**
+4. **Win rate is a trap — judge expectancy** (win%×avg-win + loss%×avg-loss).
+   *(Fixed-dip beat B&H 48% of windows yet had −17% expectancy.)*
+5. **Test assumption sensitivity** — one assumption can flip the conclusion.
+   *(Cash yield 0%→4% flipped S1's Sharpe verdict.)*
+6. **Round, simple, relative (%) rules beat fixed/optimized ones** on a rising asset — fixed
+   price levels go stale as the index climbs.
+7. **For a contribution stream, measure money-weighted IRR** (not final÷contributed).
+   *(S2: DCA IRR 18.0% > QQQ CAGR 15.3%, because the boom was back-loaded.)*
+8. **Regular contributions are already automatic dip-buying** — you buy every crash — so an
+   explicit dip overlay adds almost nothing on top. *(S2.)*
 
 ---
 
 ## Strategies
 
-### S1 — Dip-buying on index ETFs (fixed vs relative) vs buy-and-hold
-- **Status:** Backtested (historical only). **Not deployed.**
-- **Date:** 2026-08-02
-- **Type:** Mean-reversion / systematic entry.
+### S1 — Dip-buying a lump sum on index ETFs vs buy-and-hold
+- **Status:** Backtested only. Not deployed. · **Date:** 2026-08-02 · **Type:** systematic entry.
 
-**Hypothesis:** buying a broad index in tranches on dips beats lump-sum buy-and-hold.
+**Rules:** $30k budget, 3×$10k tranches, each fires once, hold to end; idle cash @4%.
+Two versions — **Fixed** (−5/−10/−15% below START price) and **Relative** (below running PEAK).
+Benchmark: buy-and-hold (all $30k day 1). Universe SPY, QQQ.
 
-**The rules:**
-- Universe: **SPY, QQQ** (broad, diversified indices — historically recover; far safer to
-  average down than a single stock — see PHILOSOPHY #6, the SPCX "falling knife" lesson).
-- Budget **$30k**, **3 equal tranches of $10k**. Each tranche fires once; hold to end.
-- Undeployed cash earns **4%/yr** (realistic T-bill/money-market rate).
-- Two versions:
-  - **Fixed-dollar:** buy at **−5 / −10 / −15% below the START price** (fixed forever).
-  - **Relative:** buy at **−5 / −10 / −15% below the running PEAK** (adapts as it rises).
-- Benchmark: **buy-and-hold** (all $30k on day 1).
+**Method:** one 2021–26 window (the trap) + **259 rolling 5-yr windows** (~25y, monthly starts,
+adjusted close = total return).
 
-**Backtest method:**
-- **Lucky-path pass:** single 2021–26 window (from `finance.db`).
-- **Rigorous pass:** **259 rolling 5-yr windows**, monthly starts, ~25 yrs SPY/QQQ
-  (yfinance, adjusted close = total return). Metrics: total return, annualized Sharpe
-  (rf=0 in ratio), max drawdown, and % of windows that beat buy-and-hold.
-
-**Results — single window (2021–26):** *dip-buying looked great (the trap)*
-| | QQQ buy-hold | QQQ fixed | QQQ relative |
-|---|---|---|---|
-| Return | +91% | **+115%** | +94% |
-- Fixed-dollar looked BEST here — but this was one lucky path (a big 2022 drawdown early, then recovery).
-
-**Results — rigorous (259 windows, 4% cash):** *the honest picture*
-| SPY | Median ret | Sharpe | Med maxDD | Worst 5yr | Beat B&H |
+**Rigorous results (259 windows, 4% cash):**
+| SPY | Med ret | Sharpe | Med maxDD | Worst 5yr | Beat B&H |
 |---|---|---|---|---|---|
 | Buy & hold | **71.8%** | 0.76 | −33.7% | −28.9% | — |
-| Fixed-dollar | 30.1% | 0.39 | −15.1% | **−3.0%** | 48% |
+| Fixed | 30.1% | 0.39 | −15.1% | **−3.0%** | 48% |
 | Relative | 58.7% | **0.82** | −26.1% | −27.3% | 48% |
 
-| QQQ | Median ret | Sharpe | Med maxDD | Worst 5yr | Beat B&H |
+| QQQ | Med ret | Sharpe | Med maxDD | Worst 5yr | Beat B&H |
 |---|---|---|---|---|---|
 | Buy & hold | **106.6%** | 0.79 | −35.1% | −65.8% | — |
-| Fixed-dollar | 50.4% | 0.51 | −16.5% | −60.6% | 43% |
+| Fixed | 50.4% | 0.51 | −16.5% | −60.6% | 43% |
 | Relative | 99.4% | **0.81** | −31.2% | −62.7% | 48% |
 
-**Results — win/loss margins (expectancy):** *the sharpest finding — win rate lies*
-| Strategy | Win rate vs B&H | Avg WIN margin | Avg LOSS margin | Overall avg (expectancy) |
+**Expectancy (the sharpest finding — win rate lies):**
+| | Win rate vs B&H | Avg WIN | Avg LOSS | Expectancy |
 |---|---|---|---|---|
 | SPY fixed | 48% | +23% | −54% | **−17%** |
 | SPY relative | 48% | +10% | −20% | **−5%** |
 | QQQ fixed | 43% | +23% | −88% | **−41%** |
 | QQQ relative | 48% | +12% | −26% | **−8%** |
 
-- **Win rate is misleading:** fixed "beats" B&H ~48% of the time but wins *small* (+23%) and
-  loses *big* (−54%) → **expectancy −17%** — a losing strategy despite a coin-flip win rate.
-- Fixed and relative have **near-identical win rates (48%)** but very different expectancy
-  (−17% vs −5%) → **win rate can't tell good from bad; expectancy can.**
-- Why the asymmetry: dip-buying wins *small* in bear windows (deploys lower than a top-buying
-  B&H) but loses *big* in bull windows (sits in cash, misses the whole run). Markets rise more
-  often → negative expectancy.
+**Findings:**
+- **Buy-and-hold wins raw return** and ~52% of windows.
+- **Relative dips:** higher Sharpe (0.82 vs 0.76) + lower drawdown = a *smoother ride, not more return*.
+- **Fixed dips:** capital-preservation profile (worst 5-yr −3% SPY) but low return, weak Sharpe.
+- **Win rate ≠ quality:** fixed "beat" B&H 48% of windows yet −17% expectancy (small wins, big
+  losses). Expectancy separated fixed (−17%) from relative (−5%); win rate couldn't.
+- The lucky single window (+115%) **reversed** under rigorous testing — the overfitting lesson, lived.
 
-**Verdict:**
-- **Buy-and-hold wins raw return** and ~52% of windows. *You don't beat the market by
-  holding cash.*
-- **Relative dips:** slightly higher Sharpe (0.82 vs 0.76) + lower drawdown → a legitimate
-  **"smoother ride,"** NOT a return booster. Give up return for less risk.
-- **Fixed-dollar dips:** **capital-preservation** profile (worst 5-yr just −3% on SPY,
-  mostly sits in cash at 4%) but low return and weak Sharpe. Only if the sole goal is
-  "never lose much."
-- **Not a deployable edge for growth.** If ever used, use *relative* levels, for drawdown
-  reduction, eyes open to the return give-up.
+**Caveats:** overlapping windows (~5 independent 5-yr periods → the Sharpe edge is likely noise);
+one market/era (US 2000–26 was exceptional; assumes the index recovers); idealized (rf=0, no
+tax/slippage, constant 4% cash); assumes emotionless execution into crashes. **S1 is an ENTRY
+technique, not an edge** — after the tranches deploy it's just buy-and-hold.
 
-**Key lessons (see also the methodology principles above):**
-- The single window **reversed** under rigorous testing → the overfitting lesson, lived.
-- The 4% cash assumption **flipped** the Sharpe result → assumption sensitivity is real.
-- Dip-buying = **risk/return trade** (lower drawdown, lower return), not a free lunch.
-- **Win rate ≠ quality.** Fixed-dip "beat" B&H 48% of windows yet has −17% expectancy — small
-  wins, big losses. Judge **expectancy** (size × frequency), never the beat-rate. Win rate
-  couldn't even distinguish fixed (−17%) from relative (−5%); expectancy did.
-
-**Caveats — read before trusting S1:**
-
-*Statistical robustness (hold the numbers loosely):*
-- **Overlapping windows** — 259 windows overlap heavily; ~25y holds only **~5 independent**
-  5-yr periods. The relative-dips Sharpe edge (0.82 vs 0.76) is **likely within noise** — not proven.
-- **One market, one era** — US SPY/QQQ, 2000–26, a period US equities were *exceptional*. May
-  not hold for Japan (30y below its 1989 peak), EM, or a different future. **Dip-buying assumes
-  the index always recovers — true for the US so far, not a law.**
-- **Idealized mechanics** — rf=0 in Sharpe; no taxes/slippage; constant 4% cash (reality: ~0%
-  in 2009–21, ~5% in 2023–24 — swings the dip strategies a lot).
-
-*Behavioral / execution (the real gap):*
-- The backtest assumes **perfect, emotionless execution.** But **buying into a −15% crash** is
-  when every instinct screams sell — most people freeze or capitulate right when the rule says buy.
-- **Cash drag is agonizing** — sitting in cash for years during a bull tests discipline; many
-  abandon the strategy right before the dip comes. **A strategy you can't execute has expectancy 0.** (PHILOSOPHY #17, #19)
-
-*Scope — what S1 actually is:*
-- **An ENTRY technique, not an edge.** It governs *how to deploy a lump sum*, not how to beat the
-  market. After the 3 tranches deploy, it's **just buy-and-hold.** Real use = **regret/drawdown
-  reduction**, not alpha.
-
-*Failure modes:*
-- **Crash past level 3** (−15%+) → out of tranches, fully deployed, underwater, no plan for a −40% bear.
-- **Dipless bull** (e.g. 2013–19) → dips never trigger, sit in cash, badly lag (the −54% loss case).
-- **Abandonment** — quitting emotionally at the worst time.
-
-**Next steps / to-do:**
-- Compare vs **DCA** (time-based) — the more practical rival for deploying cash than lump-sum.
-- Cash-yield **sensitivity sweep** (0/2/4/5%); **excess-return Sharpe**; recurring-**grid** variant.
-- Regime breakdown (bull vs bear vs sideways); other assets/eras for robustness.
-
-**Meta-takeaway:** the real value of S1 was learning the **method** (test the distribution, judge
-on Sharpe + expectancy, check assumption sensitivity, distrust a winning backtest) — that transfers
-to every future strategy. S1 fooled us first (the +115% window), then taught us to catch it.
-
-**Code:** [`backtests/dip_backtest.py`](backtests/dip_backtest.py) (single window),
-[`backtests/dip_rigorous.py`](backtests/dip_rigorous.py) (rolling windows). Reproducible —
-run from repo root with the venv active.
+**Code:** [`backtests/dip_backtest.py`](backtests/dip_backtest.py) (single),
+[`backtests/dip_rigorous.py`](backtests/dip_rigorous.py) (rolling).
 
 ---
 
-### S2 — DCA + dip-buying on a monthly income stream (QQQ) vs pure DCA
-- **Status:** Backtested (historical only). **Not deployed.**
-- **Date:** 2026-08-04
-- **Type:** Accumulation / systematic deployment of a *recurring* contribution stream.
+### S2 — Deploying a monthly income stream (QQQ 2005→26)
+- **Status:** Backtested only. Not deployed. · **Date:** 2026-08-04 · **Type:** accumulation of a recurring stream.
 
-**The real question (vs S1):** S1 deployed one fixed lump sum. This is the
-working-person version — **$50k arrives every month; how do you put an ongoing
-income stream to work?**
+**Setup:** $50k arrives every month (260 months, $13.0M total in). Base DCA buys **X%** of each
+paycheck immediately; the rest is a **reserve** deployed on dips (−10%/−20% below the running peak,
+each fires once/episode, resets on a new high); idle cash @4%. Benchmark: **pure DCA** (100% each
+month). Judged on **IRR + max drawdown** (money-weighted, single 2005-start path).
 
-**Hypothesis:** layering a dip-buying reserve + a "deploy idle cash" cap on top of
-plain monthly auto-invest beats plain auto-invest.
+**Core — cash-cap sweep (base 50%):**
+| Strategy | IRR | Max DD | Avg idle |
+|---|---|---|---|
+| Pure DCA (100%) | **18.0%** | −43.1% | $0 |
+| cap 1 mo | 18.0% | −42.1% | $45k |
+| cap 2 mo | 17.9% | −41.1% | $94k |
+| cap 3 mo | 17.9% | −40.1% | $143k |
+| cap 6 mo | 17.8% | −37.2% | $287k |
 
-**The rules:**
-- Universe: **QQQ**, 2005→today (~21.6 yrs, 260 monthly contributions, **$13.0M total in**).
-- **$50k arrives at the start of each month.**
-- **Base DCA:** buy **50% of each paycheck** immediately (always in market).
-- **Dip overlay:** hold the rest as reserve; deploy an extra tranche at **−10% / −20%
-  below the running peak** (each fires once per drawdown, resets on a new high) — the
-  S1 "relative" mechanic.
-- **Cash cap:** never let idle reserve exceed **K months** of pay; deploy the excess
-  (the "cash piled up → raise the DCA" rule, made mechanical). Swept **K = 1/2/3/6**.
-- Idle cash earns **4%/yr**. Benchmark: **pure DCA** — 100% of each paycheck into QQQ
-  the day it arrives.
-- Judged on **IRR (money-weighted annual return)** + **max drawdown** — not
-  (final ÷ contributed), which lies when money arrives over 21 years.
+→ More reserve = smaller drawdown, slightly less return. A **smoother ride, not more money.**
+The cap "raise the DCA when cash piles up" rule keeps effective deployment near 100%.
 
-**Results (QQQ 2005–2026, 4% idle cash):**
-| Strategy | Final $ | IRR/yr | Max DD | Dip buys | Avg idle $ |
-|---|---|---|---|---|---|
-| Pure DCA (100%) | $126.4M | **18.0%** | −43.1% | — | $0 |
-| S2 cap = 1 mo | $126.1M | 18.0% | −42.1% | 25 | $45k |
-| S2 cap = 2 mo | $125.4M | 17.9% | −41.1% | 25 | $94k |
-| S2 cap = 3 mo | $124.8M | 17.9% | −40.1% | 25 | $143k |
-| S2 cap = 6 mo | $122.9M | 17.8% | −37.2% | 25 | $287k |
-
-*(Context: QQQ buy-hold CAGR over the window = 15.3%; the boom was **back-loaded** —
-first-half 10.6%/yr, second-half 20.1%/yr.)*
-
-**Verdict:**
-- **Pure DCA wins again — by more than in S1.** Every reserve/dip/cap variant gave up
-  return; none beat plain auto-invest. *You don't beat the market by holding cash.*
-- **The tradeoff is real but tiny.** More reserve (higher cap) → slightly lower IRR,
-  smaller drawdown. Cap = 6 mo trimmed drawdown ~6 pts (−43% → −37%) but cost 0.2 pts of
-  IRR and parked ~$287k idle on average — a **smoother ride, not more money.**
-- **Not a deployable edge.** If drawdown-smoothing is genuinely wanted, a small cap
-  (2–3 mo) buys a few points cheaply — but the dip-timing itself adds no return.
-
-**Key lessons:**
-1. **Monthly DCA already IS automatic dip-buying.** You buy every month — *including every
-   crash* — so the contribution stream already averages you in at low prices. An explicit
-   dip reserve on top barely helps because the base is already catching the dips. That's
-   *why* S2's effect is even smaller than S1's (a static lump sum had no ongoing buying).
-2. **Money-weighted (IRR) ≠ the asset's buy-hold CAGR.** DCA IRR 18.0% > QQQ CAGR 15.3%
-   — because the boom was back-loaded and DCA had more capital deployed during the
-   high-return second half. IRR weights each dollar by time invested; when late years pay
-   more and contributions grow, IRR > start-to-end CAGR. (Use **IRR** for "how did *my
-   account* do"; **time-weighted** for "how good is the *strategy* itself.")
-3. **Ongoing contributions cushion drawdown.** −43% here vs a lump-sum QQQ's ~−53% in 2008
-   — new cash keeps buying through the crash. The reported DD reads milder than a
-   lump-sum DD; don't compare the two head-to-head.
-
-**Caveats:**
-- **Same era/survivorship bias as S1** — 2005–26 US tech was exceptional (QQQ 21.5×).
-  18%/yr is *not* a forward expectation; a flat or Japan-like era looks nothing like this.
-- **Idealized** — perfect monthly execution, no taxes/slippage, constant 4% idle-cash
-  yield (really swung 0–5%), one asset, **one path** (not rolling windows like S1's
-  rigorous pass — a to-do).
-- **Behavioral gap** — still assumes you keep buying (and deploy reserve into crashes)
-  without flinching; the real failure mode is *stopping contributions* in a bear market.
-
-**Extension (2026-08-04) — the base-buy fraction is the real knob, not the cap:**
-
-Two follow-ups located where the actual return/risk tradeoff lives.
-
-*(a) Graduated (dynamic) DCA ratio ≈ the tightest cap.* Replacing the hard cap with a rule
-that raises the buy ratio as the reserve grows (50% at ≤1mo of reserve, 75% at 1–2mo, 100%
-at 2–3mo, 150–200% above) converges to **cap-1mo**: avg reserve $46k, IRR 18.0%, DD −42.1%.
-Smooth-adjust and hard-cut land in the *same place* — any rule that refuses to let cash pile
-up necessarily behaves like near-pure-DCA.
-
-*(b) Base-buy fraction sweep 30/50/70/100% (no cap) — the hidden cost, exposed:*
-| Base buy % | Avg idle reserve | Dip $ ever used | IRR | Max DD | Final |
+**Finding A — the base-buy fraction is the REAL knob (no cap):**
+| Base % | Avg reserve | Dip $ used | IRR | Max DD | Final |
 |---|---|---|---|---|---|
 | 30% | $5.48M | $1.25M | 12.5% | −23.5% | $60M |
 | 50% | $3.72M | $1.25M | 14.8% | −28.8% | $81M |
 | 70% | $1.96M | $1.25M | 16.5% | −32.8% | $103M |
-| 100% (=pure DCA) | $0 | — | 18.0% | −43.1% | $127M |
+| 100% (=DCA) | $0 | — | 18.0% | −43.1% | $127M |
 
-**The sharpest finding of S2:** dip-buying absorbs only **$1.25M over 21 years, no matter how
-much reserve is held** — so any reserve beyond ~$1.25M is pure cash drag. Dropping the base
-fraction 100%→30% costs **5.5 pts of IRR** (18.0→12.5%, −$67M final) to buy ~20 pts of
-drawdown reduction — a *steep*, real return-for-smoothness trade. The earlier cap sweep only
-looked "free" because the cap force-deploys the reserve (~100% invested); once cash is
-genuinely withheld (low base %, no cap), the cost is severe. **Reinforced: in a mostly-rising
-market, deploying beats waiting — dips are too rare to justify holding much cash.**
+→ Base 100%→30% costs **5.5 pts of IRR** for ~20 pts of drawdown reduction — a *steep* trade.
+The cap sweep looked "free" only because the cap **force-deploys** the reserve (~100% invested);
+once cash is genuinely withheld (low base %, no cap), the cost is severe.
 
-**Next steps:** rolling-window version (like `dip_rigorous.py`) for a distribution not one
-path; cash-yield sensitivity (0/2/4/5%); regime breakdown (bull vs bear vs sideways) — the
-base-fraction sweep (done) already shows "deploy it all, immediately" wins this window.
+**Finding B — dips are too rare to matter.** The −10/−20% ladder triggers just **25 times over
+21 years (20× −10%, 5× −20%)** and absorbs only **~$1.2M total**, regardless of reserve size. Any
+reserve beyond ~$1.2M is pure cash drag. This is the root cause behind every S2 result.
 
-**Code:** [`backtests/dca_dip_backtest.py`](backtests/dca_dip_backtest.py). Standalone
-(yfinance) — run from repo root with the venv active.
+**Finding C — dynamic ratio = a thermostat ≈ the tightest cap.** Raising the buy ratio as the
+reserve grows (50%→75%→100%→150%→200% at 1/2/3/4 mo of reserve) reacts to *cash piling up*, never
+to price — no forecasting. It self-settles at ~1 mo reserve → **IRR 18.0%, DD −42.1% (CAGR 15.5%)**,
+≈ cap-1mo, and **rescues fixed-50% from its cash drag** (14.8% → 18.0% IRR). Fixed 50% *without*
+the adjustment leaves CAGR 12.6% / IRR 14.8% — the adjustment is what recovers the lost return.
+
+**Finding D — dip-grid shape (base 50%, no cap):**
+| Dip grid | Buys / $ | CAGR | IRR | Max DD |
+|---|---|---|---|---|
+| Coarse −10/−20 | 25 / $1.25M | 12.6% | 14.8% | −28.8% |
+| Fine, equal (−10→−30, step 2%, $30k ea) | 74 / $2.22M | 13.3% | **15.5%** | −30.2% |
+| Fine, escalating ($10k→$50k, deeper=bigger) | 74 / $1.62M | 12.9% | 15.1% | −29.4% |
+
+→ A finer grid helps only because it **deploys more** (closer to DCA), not because laddering is
+smart. **"Buy more the deeper it falls" is WORSE** — it backloads big tranches onto deep dips that
+almost never come, under-deploying at the frequent shallow ones. Correct instinct is the opposite.
+
+**Verdict:** in a mostly-rising market, **deploying beats waiting**. Every reserve/dip/grid variant
+trades return for a smoother ride; none beats pure DCA on return. The dip machinery's real (small)
+value is drawdown reduction — and even that comes mostly from *holding less exposure*, not clever
+timing. Best compromise found: **dynamic ratio + a fine equal grid** (deploys the reserve so it
+doesn't rot, while smoothing entry).
+
+**Caveats:** single path (2005 start), not rolling windows; one asset/era (QQQ 21.5× — 18% is NOT a
+forward expectation); constant 4% idle cash (really 0–5%); no tax/slippage; contribution-cushioned
+drawdown reads milder than a lump sum's (−43% here vs QQQ lump −53% in 2008); assumes you keep
+contributing and buy into crashes.
+
+**Next steps (open):**
+- **Rolling-window S2** (like `dip_rigorous.py`) — turn the single path into a distribution.
+- **Sharpe for S2** (not yet computed); **cash-yield sensitivity** (0/2/4/5%).
+- **Take-profit (止盈) overlay** — trim a slice to cash on big run-ups, buy back per rule; target
+  **max drawdown ≤ 20%** (current best −37%). Never sell the top — only trim at highs.
+- Grid cap defined as **% of remaining cash** (deploying 100% of reserve maximizes drawdown).
+
+**Code:** [`backtests/dca_dip_backtest.py`](backtests/dca_dip_backtest.py) — `dca` / `s2` (cap) /
+`dyn` modes + base-fraction sweep. Standalone (yfinance), run from repo root with the venv active.
 
 ---
 
@@ -269,12 +158,12 @@ base-fraction sweep (done) already shows "deploy it all, immediately" wins this 
 ```
 ### S# — <name>
 - Status: · Date: · Type:
-**Hypothesis:**
 **Rules:**
-**Backtest method:**
+**Method:**
 **Results:**
+**Findings:**
 **Verdict:**
-**Key lessons:**
-**Caveats / next:**
+**Caveats:**
+**Next steps:**
 **Code:**
 ```
