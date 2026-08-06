@@ -17,6 +17,13 @@ LOG="scraper.log"
   UPDATE_RC=$?
   echo "update.py exit code: $UPDATE_RC"
 
+  # 1b. Record account NAV (netliquidation) so the NAV-vs-index curve accumulates
+  #     one point per day. Needs IB Gateway; a down gateway just skips today's point
+  #     (non-fatal — like the price scraper, IBKR flakiness self-recovers).
+  echo "--- scrape_ibkr_account.py --account (daily NAV point) ---"
+  "$PY" scrape_ibkr_account.py --account
+  echo "account NAV exit code: $?"
+
   # 2. Full status check. Emails skyleryh6km@gmail.com if any source is down/stale.
   echo "--- health_check.py ---"
   "$PY" health_check.py

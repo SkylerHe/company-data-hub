@@ -135,6 +135,8 @@ def fetch_yahoo_prices(db, company, ticker, period="5d"):
             result["new"] += 1
 
         print(f"    ✓ Stored {result['new']} days of price data")
+        if result["new"]:
+            store.recompute_moving_averages(db, company)  # refresh 20/50/200-day SMAs
 
     except Exception as e:
         print(f"    ! Error fetching prices: {e}")

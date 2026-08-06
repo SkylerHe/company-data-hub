@@ -109,6 +109,9 @@ def init_db(db: sqlite3.Connection) -> None:
             low           REAL,
             close         REAL,
             volume        REAL,
+            ma_20         REAL,      -- trailing 20-day SMA of close (short-term)
+            ma_50         REAL,      -- 50-day SMA (medium-term)
+            ma_200        REAL,      -- 200-day SMA (long-term / trend)
             source        TEXT,
             fetched_at    TEXT,
             PRIMARY KEY (instrument_id, date)
@@ -139,8 +142,30 @@ def init_db(db: sqlite3.Connection) -> None:
             UNIQUE(company_id, url)
         );
 
+        -- Research papers / strategy literature (AQR, SSRN, journals). Like `filings`,
+        -- keep the metadata + optional full text verbatim so every strategy traces back
+        -- to its source research. `strategy` loosely links to a Strategy Research entry
+        -- (S1/S2) or a factor; `topic` tags it (trend-following, value, tax-aware, ...).
+        CREATE TABLE IF NOT EXISTS papers (
+            id          INTEGER PRIMARY KEY,
+            title       TEXT NOT NULL,
+            authors     TEXT,
+            source      TEXT,                 -- AQR, SSRN, Journal of Finance, ...
+            url         TEXT,
+            year        INTEGER,
+            topic       TEXT,                 -- 'trend-following', 'value', 'tax-aware', ...
+            strategy    TEXT,                 -- optional link: 'S1', 'S2', 'screener', factor
+            summary     TEXT,                 -- why it matters / key takeaway
+            content     TEXT,                 -- full text if fetched (verbatim), else NULL
+            read_status TEXT DEFAULT 'unread',-- 'unread' | 'read'
+            added_at    TEXT,
+            UNIQUE(title, source)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_news_company_date
             ON news(company_id, published_at);
+        CREATE INDEX IF NOT EXISTS idx_papers_topic
+            ON papers(topic);
         CREATE INDEX IF NOT EXISTS idx_prices_date
             ON prices(date);
         CREATE INDEX IF NOT EXISTS idx_metrics_company_metric_period
@@ -169,6 +194,13 @@ def init_db(db: sqlite3.Connection) -> None:
             ON company_industries(industry_id);
         """
     )
+    db.commit()
+    # Migration: precomputed moving-average columns on `prices` (added after the
+    # original schema). ALTER ADD COLUMN is a cheap metadata-only op; idempotent.
+    have = {r[1] for r in db.execute("PRAGMA table_info(prices)")}
+    for w in MA_WINDOWS:
+        if f"ma_{w}" not in have:
+            db.execute(f"ALTER TABLE prices ADD COLUMN ma_{w} REAL")
     db.commit()
 
 
@@ -466,6 +498,87 @@ def get_prices(db, instrument, start=None, end=None, field="close"):
     if end:
         q += " AND date <= ?"; args.append(end)
     q += " ORDER BY date"
+    return db.execute(q, args).fetchall()
+
+
+# Trailing simple moving averages precomputed into the prices table (short/med/long).
+MA_WINDOWS = (20, 50, 200)
+
+
+def recompute_moving_averages(db, instrument, windows=MA_WINDOWS) -> int:
+    """Recompute trailing simple moving averages (SMA) of `close` for one instrument
+    into the prices `ma_<w>` columns. SMA_w at a date = mean of the last w closes up to
+    and including that day (NULL until w closes exist). Recomputes the whole series, so
+    it's idempotent — safe to call after every price pull. Returns rows updated."""
+    iid = company_id(db, instrument, create=False)
+    if iid is None:
+        return 0
+    rows = db.execute(
+        "SELECT date, close FROM prices WHERE instrument_id=? AND close IS NOT NULL "
+        "ORDER BY date", (iid,)).fetchall()
+    if not rows:
+        return 0
+    dates = [r[0] for r in rows]
+    closes = [r[1] for r in rows]
+    n = len(closes)
+    ma = {w: [None] * n for w in windows}
+    for w in windows:                       # O(n) rolling sum per window
+        run = 0.0
+        for i, c in enumerate(closes):
+            run += c
+            if i >= w:
+                run -= closes[i - w]
+            if i >= w - 1:
+                ma[w][i] = run / w
+    setcols = ", ".join(f"ma_{w}=?" for w in windows)
+    db.executemany(
+        f"UPDATE prices SET {setcols} WHERE instrument_id=? AND date=?",
+        [tuple(ma[w][i] for w in windows) + (iid, dates[i]) for i in range(n)],
+    )
+    db.commit()
+    return n
+
+
+# ----------------------------------------------------------------------------
+# Research papers — strategy literature that backs the Strategy Research log
+# ----------------------------------------------------------------------------
+def add_paper(db, title, authors=None, source=None, url=None, year=None,
+              topic=None, strategy=None, summary=None, content=None,
+              read_status="unread") -> int | None:
+    """Add or update a research paper. Keyed on (title, source); idempotent upsert."""
+    cur = db.execute(
+        """
+        INSERT INTO papers (title, authors, source, url, year, topic, strategy,
+                            summary, content, read_status, added_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(title, source) DO UPDATE SET
+            authors     = COALESCE(excluded.authors, papers.authors),
+            url         = COALESCE(excluded.url, papers.url),
+            year        = COALESCE(excluded.year, papers.year),
+            topic       = COALESCE(excluded.topic, papers.topic),
+            strategy    = COALESCE(excluded.strategy, papers.strategy),
+            summary     = COALESCE(excluded.summary, papers.summary),
+            content     = COALESCE(excluded.content, papers.content),
+            read_status = excluded.read_status
+        """,
+        (title, authors, source, url, year, topic, strategy, summary, content, read_status, _now()),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def get_papers(db, topic=None, strategy=None, unread_only=False):
+    """List papers (newest first), optionally filtered by topic / strategy / unread."""
+    q = ("SELECT title, authors, source, year, topic, strategy, read_status, url "
+         "FROM papers WHERE 1=1")
+    args = []
+    if topic:
+        q += " AND topic = ?"; args.append(topic)
+    if strategy:
+        q += " AND strategy = ?"; args.append(strategy)
+    if unread_only:
+        q += " AND read_status = 'unread'"
+    q += " ORDER BY year DESC, title"
     return db.execute(q, args).fetchall()
 
 

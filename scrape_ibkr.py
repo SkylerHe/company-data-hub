@@ -181,9 +181,11 @@ def fetch_prices(ib, db, company, ticker, years=5):
             store.add_metric(db, company, 'price_close', date, bar.close, 'USD', 'IBKR')
             store.add_metric(db, company, 'volume', date, bar.volume, 'shares', 'IBKR')
             result["new"] += 5
-        
+
         print(f"    ✓ Stored {len(bars)} days of price data")
-        
+        if bars:
+            store.recompute_moving_averages(db, company)  # refresh 20/50/200-day SMAs
+
     except Exception as e:
         print(f"    ! Error fetching prices: {e}")
         result["errors"] += 1

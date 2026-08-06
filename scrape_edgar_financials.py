@@ -296,10 +296,13 @@ def scrape_company_financials(db, company, ticker, args) -> dict:
     result = {"filings": 0, "written": 0, "errors": 0}
 
     symbol = EDGAR_TICKER_MAP.get(ticker, ticker)
+    cik = getattr(args, "cik", None)
     try:
-        company_obj = Company(symbol)
+        # A delisted/renamed ticker (e.g. Discover 'DFS' after Capital One acquired it)
+        # no longer maps to a CIK — pass --cik to resolve it directly.
+        company_obj = Company(int(cik)) if cik else Company(symbol)
     except Exception as e:
-        alias = f" (as {symbol})" if symbol != ticker else ""
+        alias = f" (as CIK {cik})" if cik else (f" (as {symbol})" if symbol != ticker else "")
         print(f"    ! EDGAR lookup failed for {ticker}{alias}: {e}")
         result["errors"] += 1
         return result
@@ -396,6 +399,8 @@ def main():
     ap = argparse.ArgumentParser(description="Multi-year SEC EDGAR financials")
     ap.add_argument("--db", default=store.DB_PATH, help="SQLite path")
     ap.add_argument("--company", help="limit to one company (by name)")
+    ap.add_argument("--cik", help="resolve EDGAR by this CIK directly (for a delisted/"
+                                  "renamed ticker edgartools can't map, e.g. acquired DFS)")
     ap.add_argument("--test", action="store_true", help="first 5 stocks only")
     ap.add_argument("--years", type=int, default=5,
                     help="how many annual 10-Ks to pull (default 5)")

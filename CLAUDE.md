@@ -29,7 +29,7 @@ scrape_ibkr_account ─► account summary
 - **Storage:** `store.py` (schema + all DB helpers — the core), `migrate_schema.py` (one-time migration), `industries.json` (industry config), `finance.db` (gitignored, ~740 MB)
 - **Analysis (read-only engines):** `analyze.py` (fundamental health), `valuation.py` (intrinsic value: DCF/CAPM/WACC/reverse-DCF/comps/scenarios), `report.py` (editable Excel model), `industry.py` (peer comparison)
 - **Skills** (`.claude/skills/`): `company-data`, `read-fundamentals`, `value-company`, `map-industry`
-- **Automation:** `update.py` (smart-cadence orchestrator), `run_daily.sh` (launchd entry), `setup_automation.sh` (installs the agent), `health_check.py` (connectivity + freshness + email alerts), `dashboard.py` (local web UI), `.github/workflows/daily-scrape.yml`
+- **Automation:** `update.py` (smart-cadence orchestrator), `run_daily.sh` (launchd entry), `setup_automation.sh` (installs the agent), `health_check.py` (connectivity + freshness + email alerts), `dashboard.py` (local web UI), `nav_chart.py` (account NAV vs index, rebased-to-100 SVG), `.github/workflows/daily-scrape.yml`
 - **Learning/journals:** `CFA_TRADING_CURRICULUM.md` (CFA↔trading study track), `LEARNING_LOG.md` (traceable progress), `CFA_PRACTICE_REVIEW.md` (running tracker of official-site practice: misses, terms, weak spots), `HOW_TO_READ_STATEMENTS.md` (worked guide to the 3 statements, real MSFT FY2025 numbers), `PHILOSOPHY.md` (investing principles), `investment/` (long-term "book"), `trade/` (active-trading "book"). CFA Level I *practice questions* are done on the official CFA website; only the review tracker lives in-repo.
 
 ## How to run
@@ -55,9 +55,10 @@ python health_check.py --dry-run    # status of every source (no email)
   - `source='SEC/EDGAR'` → multi-year **statement trend**, `period='FY2024'…` (revenue, net_income, free_cash_flow, total_assets/equity, shares…)
   - `source='Yahoo'` → **current snapshot** of market ratios, `period` a date like `'2026-07-01'` (pe_ratio, roe, gross_margin, beta, market_cap…)
   - `source='Finviz'` → **correction layer** over the Yahoo snapshot: only the fields Yahoo serves corrupt (`book_value_per_share`, `pb_ratio`, `ev_ebitda`) plus `enterprise_value`/`roic`/`peg_ratio`. `analyze.snapshot()` **prefers Finviz over Yahoo**, so engines read the corrected value automatically; everything else stays on Yahoo. Stocks/REITs only (ETFs/ADRs skipped).
-- **`prices`** = OHLCV per `(instrument_id, date)`, `source` IBKR (primary) or Yahoo (fallback).
+- **`prices`** = OHLCV per `(instrument_id, date)`, `source` IBKR (primary) or Yahoo (fallback). Also stores precomputed trailing SMAs `ma_20`/`ma_50`/`ma_200` (NULL until N closes exist), refreshed by `store.recompute_moving_averages()` after every price pull.
 - **`industries` + `company_industries`** = **23 thematic industries** (~11 names each: Semiconductors, AI Infrastructure, Defense & Space…). **Not GICS.**
 - `filings` (full text), `news` (full-text articles).
+- **`papers`** = research/strategy literature (AQR, SSRN, journals): `title`, `authors`, `source`, `url`, `year`, `topic`, `strategy` (loose link to an S1/S2 entry or factor), `summary`, optional full `content`, `read_status`. Add/query via `store.add_paper()` / `store.get_papers()`. Ties each strategy back to its source research.
 
 ## Conventions & gotchas
 - **Run from repo root** — `store.DB_PATH = "finance.db"` is CWD-relative.
@@ -70,7 +71,7 @@ python health_check.py --dry-run    # status of every source (no email)
 - **Secrets** (SEC_IDENTITY, SMTP creds, API keys) live in `.env` (gitignored). Never commit them.
 
 ## Automation & alerting
-`run_daily.sh` (launchd) runs `update.py` then `health_check.py`, logging to `scraper.log`. Health check emails on **stale data** or a **non-IBKR source down** — but **IBKR connectivity failures never alert** (IB Gateway is flaky and self-recovers; Yahoo fallback keeps prices fresh meanwhile).
+`run_daily.sh` (launchd) runs `update.py`, records the day's account NAV (`scrape_ibkr_account.py --account`, one `netliquidation` point/day — needs IB Gateway, skips silently if down), then `health_check.py`, logging to `scraper.log`. Health check emails on **stale data** or a **non-IBKR source down** — but **IBKR connectivity failures never alert** (IB Gateway is flaky and self-recovers; Yahoo fallback keeps prices fresh meanwhile).
 
 ## Learning layer
 The repo doubles as a study loop: `LEARNING_LOG.md` tracks progress (order mechanics, risk sizing, and the valuation module); `PHILOSOPHY.md` holds the investing principles to **consult before any financial suggestion** (margin of safety, survivability, evidence-based). Two journals: `investment/` (hold) and `trade/` (active).
