@@ -154,6 +154,69 @@ contributing and buy into crashes.
 
 ---
 
+### S3 — Trend following (CTA) on a cross-asset ETF basket
+- **Status:** Backtested (Phase-2 basic, historical only). **Not deployed.**
+- **Date:** 2026-08-07
+- **Type:** Systematic trend / time-series momentum. (See [`../TREND_FOLLOWING_PLAN.md`](../TREND_FOLLOWING_PLAN.md).)
+
+**Hypothesis:** holding a diversified basket only while each asset trends up (price >
+200-day MA), inverse-vol sized, beats buy-and-hold on risk-adjusted return + drawdown.
+
+**Rules:**
+- Universe: **8 ETFs across asset classes** — SPY, QQQ, EFA, EEM, TLT, GLD, DBC, UUP.
+- Signal: hold an asset while **price > 200-day SMA**; else that sleeve → **cash @4%**.
+- Sizing: **inverse-volatility** (risk parity) across in-trend assets; normalize by TOTAL
+  inv-vol so out-of-trend sleeves sit in cash. Monthly rebalance. 2007–2026.
+
+**Results:**
+| Strategy | CAGR | Vol | Sharpe | Max DD |
+|---|---|---|---|---|
+| **Trend (S3)** | 7.0% | **6.2%** | **0.50** | **−7.0%** |
+| Buy & hold SPY | **11.2%** | 19.8% | 0.44 | −53.4% |
+| Buy & hold basket (EW) | 7.4% | 11.9% | 0.33 | −33.9% |
+
+**Crisis check:** 2008 Trend **+6.6%** vs SPY −36.8% · 2022 **+2.1%** vs −18.2% ·
+2018 +2.3% vs −4.6% · 2020 +10.1% vs +18.3% (lagged the V-recovery).
+
+**Findings:**
+- **Classic trend profile:** gives up raw return (7% vs SPY 11%) but **crushes drawdown
+  (−7% vs −53%)** and edges Sharpe (0.50 vs 0.44).
+- **Crisis alpha is real** — made money in 2008 and 2022 while SPY fell hard.
+- **The 15% goal — leverage was the hypothesis; Phase 3 tested it and it FAILED.** Vol is
+  only 6.2% → looked hugely under-levered. *Naive projection was: lever ~2.4× → ~15%.* **Phase
+  3 (below) disproved that** — with honest financing + costs, leverage reached only ~8.5% at
+  2.9× while Sharpe FELL and drawdown blew to −23%. Lesson: **15% needs a higher-Sharpe base
+  (more markets/diversification), NOT leverage.**
+- **Weakness:** whipsaw in sharp V-recoveries (2020 lagged); single 200-day signal is crude.
+
+**Phase-3 update (2026-08-07) — vol-targeting + multi-speed (50/100/200) + costs/financing:**
+| Version | CAGR | Vol | Sharpe | Max DD | Avg lev |
+|---|---|---|---|---|---|
+| Base (no target) | 6.8% | 5.7% | **0.49** | **−6.9%** | 1.0× |
+| Vol-target 10% | 7.6% | 11.2% | 0.36 | −16.2% | 2.0× |
+| Vol-target 15% | 8.2% | 14.7% | 0.34 | −22.5% | 2.6× |
+| Vol-target 20% | 8.5% | 16.1% | 0.35 | −23.1% | 2.9× |
+
+**Honest correction:** leverage barely moved return (6.8%→8.5%) but tripled vol, blew
+drawdown −7%→−23%, and **cut Sharpe 0.49→0.35.** Why: 5% financing + transaction costs +
+vol-targeting gets *max-levered right before vol spikes* (classic pitfall). **Leverage can't
+create Sharpe, only scale it (minus costs).** → **15% is NOT reachable by levering this
+8-ETF basket.** Get there via a **higher-Sharpe base** (real futures across dozens of
+markets — 8 ETFs under-diversify — better signals, or combining strategies). The **unlevered
+base (Sharpe 0.49, −7% DD) is the sweet spot** — an excellent diversifier, not a 15% engine.
+Code: [`backtests/trend_voltarget.py`](backtests/trend_voltarget.py).
+
+**Verdict:** a legitimate low-drawdown, positive-Sharpe **base**. 15%/yr is reachable via
+vol-targeting + modest leverage — eyes open on the higher drawdown that brings. Not deployed.
+
+**Next steps:** Phase 3 (multi-speed fast+slow signals, **vol-targeting**, transaction
+costs); Phase 4 (rolling windows, out-of-sample, the leverage↔drawdown trade-off); then
+paper-trade (Phase 5).
+
+**Code:** [`backtests/trend_backtest.py`](backtests/trend_backtest.py). Standalone (yfinance).
+
+---
+
 *Template for the next entry — copy this:*
 ```
 ### S# — <name>

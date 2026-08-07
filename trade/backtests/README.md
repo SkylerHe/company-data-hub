@@ -19,6 +19,10 @@ python trade/backtests/dip_rigorous.py    # rolling 5-yr windows (pulls ~25y SPY
 - **`dca_dip_backtest.py`** — **S2**: a *monthly income stream* ($50k/mo) into QQQ,
   2005→today. Base DCA + dip reserve + a cash-cap sweep (K = 1/2/3/6 months) vs pure DCA.
   Reports **IRR** (money-weighted annual return) + max drawdown. Standalone (yfinance).
+- **`trend_backtest.py`** — **S3**: basic **trend-following (CTA)** on an 8-ETF cross-asset
+  basket (2007→today). 200-day-MA trend filter + inverse-vol sizing, cash when out of trend.
+  Reports CAGR / vol / Sharpe / max drawdown vs buy-and-hold + a crisis-year check.
+  Standalone (yfinance). See `../TREND_FOLLOWING_PLAN.md`.
 
 ## Reminder (the whole point)
 A strategy that wins one backtest means nothing. Judge on the **distribution** across many
