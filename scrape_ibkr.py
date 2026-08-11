@@ -95,39 +95,20 @@ def get_contract(ib, ticker):
 
 
 def fetch_fundamentals(ib, db, company, ticker):
-    """Fetch fundamental data and store in metrics table."""
-    print(f"  Fetching fundamentals for {company} ({ticker})...")
-    
-    contract = get_contract(ib, ticker)
-    if not contract:
-        return {"errors": 1}
-    
-    result = {"new": 0, "errors": 0}
-    
-    try:
-        # Get financial summary (ratios, margins, etc.)
-        summary_xml = ib.reqFundamentalData(contract, 'ReportsFinSummary')
-        time.sleep(1)  # Rate limit
-        
-        # Get financial statements
-        statements_xml = ib.reqFundamentalData(contract, 'ReportsFinStatements')
-        time.sleep(1)
-        
-        # Parse and store (simplified - you'd parse XML properly)
-        # For now, just store raw XML in a metric
-        period = datetime.now().strftime('%Y-Q%d')
-        
-        store.add_metric(db, company, 'financial_summary', period, 0, 'xml', 'IBKR', summary_xml)
-        store.add_metric(db, company, 'financial_statements', period, 0, 'xml', 'IBKR', statements_xml)
-        result["new"] += 2
-        
-        print(f"    ✓ Stored fundamental data")
-        
-    except Exception as e:
-        print(f"    ! Error fetching fundamentals: {e}")
-        result["errors"] += 1
-    
-    return result
+    """IBKR fundamentals are intentionally NOT stored — we skip them.
+
+    IBKR only returns fundamentals as a raw XML blob, and the `metrics` table has
+    no column to hold it. The old code tried to pass that XML as an 8th positional
+    argument to store.add_metric() (which takes 7), so every call raised and zero
+    rows were ever stored — just 2 errors logged per instrument. Real fundamentals
+    already come from Yahoo/Finviz (current snapshot) and SEC/EDGAR (statement
+    trend), so IBKR's are redundant. Skip cleanly instead of erroring on every name.
+
+    To revive this properly, parse the XML into its own table (e.g. `filings`)
+    rather than `metrics`.
+    """
+    print(f"  Skipping IBKR fundamentals for {company} ({ticker}) — sourced from Yahoo/Finviz/EDGAR")
+    return {"new": 0, "errors": 0, "skipped": 1}
 
 
 def fetch_prices(ib, db, company, ticker, years=5):
@@ -194,32 +175,15 @@ def fetch_prices(ib, db, company, ticker, years=5):
 
 
 def fetch_analyst_estimates(ib, db, company, ticker):
-    """Fetch analyst estimates (EPS, revenue forecasts)."""
-    print(f"  Fetching analyst estimates for {company} ({ticker})...")
-    
-    contract = get_contract(ib, ticker)
-    if not contract:
-        return {"errors": 1}
-    
-    result = {"new": 0, "errors": 0}
-    
-    try:
-        # Get analyst estimates
-        estimates_xml = ib.reqFundamentalData(contract, 'CalendarReport')
-        time.sleep(1)
-        
-        # Store raw XML (you'd parse this properly in production)
-        period = datetime.now().strftime('%Y-%m-%d')
-        store.add_metric(db, company, 'analyst_estimates', period, 0, 'xml', 'IBKR', estimates_xml)
-        result["new"] += 1
-        
-        print(f"    ✓ Stored analyst estimates")
-        
-    except Exception as e:
-        print(f"    ! Error fetching estimates: {e}")
-        result["errors"] += 1
-    
-    return result
+    """IBKR analyst estimates are intentionally NOT stored — we skip them.
+
+    Same root cause as fetch_fundamentals(): IBKR returns estimates as a raw XML
+    blob with no home in the `metrics` table, and the old store.add_metric() call
+    passed 8 args to a 7-arg function, so it always raised (1 error per instrument)
+    and stored nothing. Skip cleanly; revive by parsing the XML into a real table.
+    """
+    print(f"  Skipping IBKR analyst estimates for {company} ({ticker})")
+    return {"new": 0, "errors": 0, "skipped": 1}
 
 
 def fetch_ibkr_news(ib, db, company, ticker, days=7):
@@ -247,7 +211,15 @@ def fetch_ibkr_news(ib, db, company, ticker, days=7):
             end,
             100  # max articles
         )
-        
+
+        # reqHistoricalNews returns None when the account has no news-feed
+        # subscription (or nothing in the window). Iterating None raised
+        # "'NoneType' object is not iterable" once per instrument — treat it as
+        # simply "no news" instead of an error.
+        if not news_articles:
+            print(f"    – no IBKR news (no subscription or none in range)")
+            return result
+
         for article in news_articles:
             # Fetch full article text
             article_data = ib.reqNewsArticle(
