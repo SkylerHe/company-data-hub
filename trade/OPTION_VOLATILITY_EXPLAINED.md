@@ -208,6 +208,33 @@ meme stock. You compare it to **its own history**.
 
 ---
 
+## Resources (reading list)
+
+Same convention as [`TREND_FOLLOWING_PLAN.md`](TREND_FOLLOWING_PLAN.md): the
+**papers** below belong in the `papers` table (`store.add_paper(...)`, `topic='option volatility'`);
+the **books** are the durable references behind this note.
+
+**The book (start here):** Sheldon Natenberg, *Option Volatility and Pricing* —
+**the** foundational text on this exact topic. Everything in this primer (implied
+vs. realized vol, vega, the vol surface, trading cheap vs. expensive premium) is the
+plain-English version of Natenberg's core chapters. Read it first.
+
+**Other books:**
+- Euan Sinclair, *Volatility Trading* — the practitioner's follow-up: measuring vol,
+  the edge in selling rich IV, position sizing. Read after Natenberg.
+- John C. Hull, *Options, Futures, and Other Derivatives* — the academic reference;
+  overlaps the **🎓 CFA L1 Derivatives** material (pricing, Greeks, no-arbitrage).
+
+**Papers / primary sources** (add to the `papers` table):
+- CBOE, *The VIX White Paper* (VIX methodology) — how implied vol for the whole index is computed.
+- Black & Scholes (1973), *The Pricing of Options and Corporate Liabilities* — where
+  implied volatility comes from (the formula you invert to back it out).
+
+> To log these once `finance.db` is present:
+> `python -c "import store; db=store.get_db(); store.add_paper(db, title='Option Volatility and Pricing', authors='Sheldon Natenberg', source='book', topic='option volatility')"`
+
+---
+
 ## Part 8 — First practice steps (paper only)
 
 Aligns with the `IBKR_TRADER_TRAINING.md` paper-account discipline — **no real
