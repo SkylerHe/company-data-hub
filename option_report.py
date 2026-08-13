@@ -28,7 +28,6 @@ import sys
 from openpyxl import Workbook
 from openpyxl.chart import LineChart, Reference
 
-import store
 import option_strategy
 import option_position as op
 # reuse report.py's styling so the workbooks look like the valuation model
@@ -170,27 +169,12 @@ def build_workbook(ctx):
 
 def main():
     ap = argparse.ArgumentParser(description="Export an option position as an Excel workbook")
-    ap.add_argument("--db", default=store.DB_PATH)
-    ap.add_argument("--strategy", required=True, choices=list(op.STRATEGY_LEGS))
-    ap.add_argument("--company", required=True)
-    ap.add_argument("--expiry", required=True, help="YYYY-MM-DD or YYYYMMDD")
-    ap.add_argument("--put-strike", type=float)
-    ap.add_argument("--call-strike", type=float)
-    ap.add_argument("--basis", type=float, help="Share cost basis (default: spot)")
-    ap.add_argument("--contracts", type=int, default=1)
+    op.add_position_args(ap)
     ap.add_argument("--out", help="output .xlsx path")
-    ap.add_argument("--spot", type=float, help="Offline: underlying price")
-    ap.add_argument("--iv", type=float, help="Offline: implied vol %% (e.g. 19.05)")
-    ap.add_argument("--days", type=float, help="Offline: days to expiration")
     args = ap.parse_args()
 
-    offline = args.spot is not None and args.iv is not None and args.days is not None
-    db = None if offline else store.get_db(args.db)
     try:
-        ctx = op.build_context(db, args.strategy, args.company, args.expiry,
-                               args.put_strike, args.call_strike, basis=args.basis,
-                               contracts=args.contracts, spot=args.spot,
-                               iv=args.iv, days=args.days)
+        ctx = op.context_from_args(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         sys.exit(1)

@@ -27,7 +27,6 @@ import argparse
 import os
 import sys
 
-import store
 import option_strategy
 import option_position as op
 
@@ -130,17 +129,7 @@ def push_to_sheets(data, *, sheet_id=None, sheet_url=None, creds_path=None):
 
 def main():
     ap = argparse.ArgumentParser(description="Push an option position into a Google Sheet")
-    ap.add_argument("--db", default=store.DB_PATH)
-    ap.add_argument("--strategy", required=True, choices=list(op.STRATEGY_LEGS))
-    ap.add_argument("--company", required=True)
-    ap.add_argument("--expiry", required=True, help="YYYY-MM-DD or YYYYMMDD")
-    ap.add_argument("--put-strike", type=float)
-    ap.add_argument("--call-strike", type=float)
-    ap.add_argument("--basis", type=float)
-    ap.add_argument("--contracts", type=int, default=1)
-    ap.add_argument("--spot", type=float, help="Offline: underlying price")
-    ap.add_argument("--iv", type=float, help="Offline: implied vol %% (e.g. 19.05)")
-    ap.add_argument("--days", type=float, help="Offline: days to expiration")
+    op.add_position_args(ap)
     ap.add_argument("--sheet-url", help="Target Google Sheet URL")
     ap.add_argument("--sheet-id", help="Target Google Sheet key/id")
     ap.add_argument("--creds", help="Service-account JSON path "
@@ -148,13 +137,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="Print the tabs; don't call Google")
     args = ap.parse_args()
 
-    offline = args.spot is not None and args.iv is not None and args.days is not None
-    db = None if offline else store.get_db(args.db)
     try:
-        ctx = op.build_context(db, args.strategy, args.company, args.expiry,
-                               args.put_strike, args.call_strike, basis=args.basis,
-                               contracts=args.contracts, spot=args.spot,
-                               iv=args.iv, days=args.days)
+        ctx = op.context_from_args(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         sys.exit(1)

@@ -99,6 +99,30 @@ def position_greeks(strategy, legs, contracts):
     return net
 
 
+def add_position_args(ap):
+    """Register the CLI args common to the option exporters (option_report, sheets_export)."""
+    ap.add_argument("--db", default=store.DB_PATH)
+    ap.add_argument("--strategy", required=True, choices=list(STRATEGY_LEGS))
+    ap.add_argument("--company", required=True)
+    ap.add_argument("--expiry", required=True, help="YYYY-MM-DD or YYYYMMDD")
+    ap.add_argument("--put-strike", type=float)
+    ap.add_argument("--call-strike", type=float)
+    ap.add_argument("--basis", type=float, help="Share cost basis (default: spot)")
+    ap.add_argument("--contracts", type=int, default=1)
+    ap.add_argument("--spot", type=float, help="Offline: underlying price")
+    ap.add_argument("--iv", type=float, help="Offline: implied vol %% (e.g. 19.05)")
+    ap.add_argument("--days", type=float, help="Offline: days to expiration")
+
+
+def context_from_args(args):
+    """Build the position context from parsed args (offline if spot/iv/days, else DB)."""
+    offline = args.spot is not None and args.iv is not None and args.days is not None
+    db = None if offline else store.get_db(args.db)
+    return build_context(db, args.strategy, args.company, args.expiry,
+                         args.put_strike, args.call_strike, basis=args.basis,
+                         contracts=args.contracts, spot=args.spot, iv=args.iv, days=args.days)
+
+
 def build_context(db, strategy, company, expiry, put_strike, call_strike,
                   basis=None, contracts=1, spot=None, iv=None, days=None):
     """Assemble the position dict both exporters (Excel, Sheets) render from.
