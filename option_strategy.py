@@ -32,7 +32,6 @@ Usage:
 """
 
 import argparse
-import math
 
 import volatility
 
@@ -158,7 +157,6 @@ def report(strategy, spot, basis, kp, cp, kc, cc, contracts):
         cushion = (basis - a["break_evens"][0]) if a["break_evens"] else 0.0
         print("  " + "-" * 52)
         if strategy == "protective_put":
-            floor = kp - (cp)            # net floor after premium
             print(f"  Real floor: below {kp:g} the put offsets every further $1 drop; "
                   f"worst case ≈ {_fmt(a['max_loss'])}/sh.")
         elif strategy == "collar":

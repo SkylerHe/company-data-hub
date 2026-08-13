@@ -29,7 +29,6 @@ Usage:
 
 import argparse
 import sys
-from datetime import date, datetime
 
 import store
 import volatility
@@ -84,7 +83,7 @@ def gather_live(db, args, iso_expiry, needed):
             "underlying": q["underlying_price"],
             **{g: q[g] for g in GREEKS},
         }
-    spot = next((l["underlying"] for l in legs.values() if l.get("underlying")), None)
+    spot = next((leg["underlying"] for leg in legs.values() if leg.get("underlying")), None)
     return legs, spot
 
 
