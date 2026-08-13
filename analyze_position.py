@@ -33,34 +33,13 @@ import sys
 import store
 import volatility
 import option_strategy
-
-# Which legs each strategy holds: (right, qty_sign). +1 = long (own), -1 = short (sold).
-STRATEGY_LEGS = {
-    "covered_call":   [("C", -1)],
-    "protective_put": [("P", +1)],
-    "collar":         [("P", +1), ("C", -1)],
-    "long_call":      [("C", +1)],
-    "long_put":       [("P", +1)],
-    "short_call":     [("C", -1)],
-}
-HAS_STOCK = {"covered_call", "protective_put", "collar"}
-GREEKS = ("delta", "gamma", "vega", "theta", "rho")
-
-
-def _premium_from_quote(row):
-    """Best available premium from a stored quote: mid, else last, else model."""
-    bid, ask = row["bid"], row["ask"]
-    if bid is not None and ask is not None:
-        return (bid + ask) / 2
-    return row["last"] if row["last"] is not None else row["model_price"]
+import option_position as op
+from option_position import STRATEGY_LEGS
 
 
 def gather_live(db, args, iso_expiry, needed):
     """Pull the needed strikes from IBKR, store a snapshot, read the legs back."""
-    try:
-        import scrape_ibkr_options as sio
-    except SystemExit:
-        raise
+    import scrape_ibkr_options as sio
     strikes = sorted({k for _, k in needed})
     ib = sio.connect_ibkr(delayed=args.delayed)
     try:
@@ -68,22 +47,10 @@ def gather_live(db, args, iso_expiry, needed):
                            strikes=strikes, rights="CP", source="IBKR")
     finally:
         ib.disconnect()
-
-    legs = {}
-    quotes = store.get_option_quotes(db, args.company, expiry=iso_expiry)
-    by_key = {(round(q["strike"], 4), q["opt_right"]): q for q in quotes}
+    legs, spot = op.legs_from_db(db, store, args.company, iso_expiry, needed)
     for right, k in needed:
-        q = by_key.get((round(k, 4), right))
-        if q is None:
+        if (right, k) not in legs:
             print(f"  ! no live quote for {k:g}{right}")
-            continue
-        legs[(right, k)] = {
-            "strike": k, "right": right, "iv": q["implied_vol"],
-            "premium": _premium_from_quote(q),
-            "underlying": q["underlying_price"],
-            **{g: q[g] for g in GREEKS},
-        }
-    spot = next((leg["underlying"] for leg in legs.values() if leg.get("underlying")), None)
     return legs, spot
 
 
@@ -91,36 +58,15 @@ def gather_offline(db, args, iso_expiry, needed):
     """Compute each leg's Greeks from --spot/--iv/--days; record a manual snapshot."""
     if args.spot is None or args.iv is None or args.days is None:
         raise SystemExit("--offline needs --spot, --iv and --days.")
-    spot, iv, days = args.spot, args.iv / 100.0, args.days
-    T = days / 365.0
+    legs = op.compute_legs_offline(args.spot, args.iv, args.days, needed)
     snap = store._now()
-    legs = {}
-    for right, k in needed:
-        kind = "call" if right == "C" else "put"
-        g = volatility.bs_greeks(spot, k, T, iv, right=kind)
-        legs[(right, k)] = {"strike": k, "right": right, "iv": iv,
-                            "premium": round(g["price"], 2), "underlying": spot, **g}
-        store.add_option_quote(db, args.company, iso_expiry, k, right,
-                               underlying_price=spot, implied_vol=iv,
-                               delta=g["delta"], gamma=g["gamma"], vega=g["vega"],
-                               theta=g["theta"], rho=g["rho"], model_price=g["price"],
-                               source="manual", snapshot_at=snap)
-    return legs, spot
-
-
-def position_greeks(strategy, legs, contracts):
-    """Net Greeks of the WHOLE position (shares + option legs), ×100×contracts."""
-    mult = 100 * contracts
-    net = {g: 0.0 for g in GREEKS}
-    if strategy in HAS_STOCK:
-        net["delta"] += mult                 # 100 long shares = delta 1.0/sh each
     for (right, k), leg in legs.items():
-        sign = dict(STRATEGY_LEGS[strategy]).get(right, 0)
-        for g in GREEKS:
-            v = leg.get(g)
-            if v is not None:
-                net[g] += sign * v * mult
-    return net
+        store.add_option_quote(db, args.company, iso_expiry, k, right,
+                               underlying_price=leg["underlying"], implied_vol=leg["iv"],
+                               delta=leg["delta"], gamma=leg["gamma"], vega=leg["vega"],
+                               theta=leg["theta"], rho=leg["rho"], model_price=leg["premium"],
+                               source="manual", snapshot_at=snap)
+    return legs, args.spot
 
 
 def main():
@@ -145,12 +91,10 @@ def main():
         if "-" not in args.expiry else args.expiry
 
     # Which legs (right, strike) does this strategy need?
-    needed = []
-    for right, _ in STRATEGY_LEGS[args.strategy]:
-        k = args.put_strike if right == "P" else args.call_strike
-        if k is None:
-            ap.error(f"{args.strategy} needs --{'put' if right == 'P' else 'call'}-strike")
-        needed.append((right, k))
+    try:
+        needed = op.needed_legs(args.strategy, args.put_strike, args.call_strike)
+    except ValueError as e:
+        ap.error(str(e))
 
     db = store.get_db(args.db)
     store.init_db(db)
@@ -184,7 +128,7 @@ def main():
               f"{leg['theta']:+7.3f}  {leg['rho']:+6.3f}")
 
     # ---- net position Greeks ----
-    net = position_greeks(args.strategy, legs, args.contracts)
+    net = op.position_greeks(args.strategy, legs, args.contracts)
     print(f"\nNet position Greeks (×{100*args.contracts} sh):")
     print(f"  delta {net['delta']:+.1f}   gamma {net['gamma']:+.2f}   "
           f"vega {net['vega']:+.1f}/IVpt   theta {net['theta']:+.1f}/day   "
