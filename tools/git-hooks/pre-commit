@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Global pre-commit hook: block dead code, warn on duplicate blocks (Python).
+#
+# Installed for ALL repos via `git config --global core.hooksPath`. Runs only on
+# staged *.py files. Dead code (unused imports/vars, redefinitions, unreachable)
+# BLOCKS the commit; duplicate-block detection prints a WARNING (non-blocking
+# unless HOOK_STRICT_DUP=1). Skip a one-off commit with `git commit --no-verify`.
+set -u
+
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Staged Python files (Added/Copied/Modified/Renamed), NUL-safe.
+mapfile -d '' -t PY < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.py')
+[ ${#PY[@]} -eq 0 ] && exit 0
+
+# Only keep files that still exist on disk.
+files=(); for f in "${PY[@]}"; do [ -f "$f" ] && files+=("$f"); done
+[ ${#files[@]} -eq 0 ] && exit 0
+
+# Pick a linter: prefer ruff, fall back to flake8. Neither -> skip dead-code gate.
+run_deadcode() {
+  local rules="F401,F811,F841,F823"          # unused import / redef / unused var / undefined
+  if command -v ruff >/dev/null 2>&1; then
+    ruff check --select "$rules" "${files[@]}"; return $?
+  elif python -c "import ruff" >/dev/null 2>&1; then
+    python -m ruff check --select "$rules" "${files[@]}"; return $?
+  elif command -v flake8 >/dev/null 2>&1; then
+    flake8 --select "$rules" "${files[@]}"; return $?
+  elif python -c "import flake8" >/dev/null 2>&1; then
+    python -m flake8 --select "$rules" "${files[@]}"; return $?
+  fi
+  echo "  (pre-commit: no ruff/flake8 found — skipping dead-code check)"; return 0
+}
+
+echo "pre-commit: checking ${#files[@]} staged Python file(s) for dead code…"
+if ! run_deadcode; then
+  echo
+  echo "✗ Dead code found (unused imports/vars, redefinitions, or undefined names)."
+  echo "  Fix them, or bypass with:  git commit --no-verify"
+  exit 1
+fi
+
+# Duplicate-block warning (advisory). Blocks only if HOOK_STRICT_DUP=1.
+if [ -f "$hook_dir/dupecheck.py" ]; then
+  if ! python "$hook_dir/dupecheck.py" "${files[@]}"; then
+    if [ "${HOOK_STRICT_DUP:-0}" = "1" ]; then
+      echo "✗ Duplicate blocks found (HOOK_STRICT_DUP=1). Bypass: git commit --no-verify"
+      exit 1
+    fi
+  fi
+fi
+
+echo "pre-commit: OK"
+exit 0
