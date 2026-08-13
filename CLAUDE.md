@@ -27,7 +27,7 @@ scrape_ibkr_account ─► account summary
 ## Layout (grouped by role — files are flat at repo root)
 - **Collection:** `scrape_ibkr.py` (prices), `scrape_yahoo.py` (fundamentals snapshot + fallback prices), `scrape_finviz.py` (correction layer: overrides the snapshot fields Yahoo serves corrupt — book value, P/B, EV/EBITDA — plus adds ROIC/enterprise value), `scrape_edgar_financials.py` (multi-year SEC statements), `scrape_filings.py` (10-K/10-Q/8-K text), `scrape_news.py` (news), `scrape_ibkr_account.py` (portfolio/account), `scrape_ibkr_options.py` (real-time option chain: implied vol + Greeks → `option_quotes`, run locally against IB Gateway)
 - **Storage:** `store.py` (schema + all DB helpers — the core), `migrate_schema.py` (one-time migration), `industries.json` (industry config), `finance.db` (gitignored, ~740 MB)
-- **Analysis (read-only engines):** `analyze.py` (fundamental health), `valuation.py` (intrinsic value: DCF/CAPM/WACC/reverse-DCF/comps/scenarios), `report.py` (editable Excel model), `industry.py` (peer comparison), `volatility.py` (realized/historical vol from prices + Black-Scholes option Greeks & implied-vol solver, stdlib-only)
+- **Analysis (read-only engines):** `analyze.py` (fundamental health), `valuation.py` (intrinsic value: DCF/CAPM/WACC/reverse-DCF/comps/scenarios), `report.py` (editable Excel model), `industry.py` (peer comparison), `volatility.py` (realized/historical vol from prices + Black-Scholes option Greeks & implied-vol solver + **IV Rank/Percentile** from `option_quotes` history, stdlib-only), `option_strategy.py` (option strategy P&L: max profit/loss/break-even + payoff table for covered call / protective put / collar / long call·put / naked short call)
 - **Skills** (`.claude/skills/`): `company-data`, `read-fundamentals`, `value-company`, `map-industry`
 - **Automation:** `update.py` (smart-cadence orchestrator), `run_daily.sh` (launchd entry), `setup_automation.sh` (installs the agent), `health_check.py` (connectivity + freshness + email alerts), `dashboard.py` (local web UI), `nav_chart.py` (account NAV vs index, rebased-to-100 SVG), `.github/workflows/daily-scrape.yml`
 - **Learning/journals:** `CFA_TRADING_CURRICULUM.md` (CFA↔trading study track), `LEARNING_LOG.md` (traceable progress), `CFA_PRACTICE_REVIEW.md` (running tracker of official-site practice: misses, terms, weak spots), `PHILOSOPHY.md` (investing principles), `investment/` (long-term "book"), `trade/` (active-trading "book"). CFA Level I *practice questions* are done on the official CFA website; only the review tracker lives in-repo.
@@ -44,6 +44,8 @@ python industry.py  --industry Semiconductors   # peer map (or --company NVIDIA)
 python volatility.py --company QQQ               # realized/historical vol (from prices)
 python volatility.py --greeks --spot 733.94 --strike 748 --days 7 --iv 19.05 --right call   # option Greeks
 python volatility.py --greeks --spot 733.94 --strike 748 --days 7 --price 1.47 --right call  # solve IV from a price
+python volatility.py --iv-rank QQQ                # IV Rank/Percentile (needs option_quotes history)
+python option_strategy.py --strategy collar --spot 733.94 --put-strike 713 --put-premium 1.23 --call-strike 754 --call-premium 1.67   # max P&L + break-even
 
 # Data
 python update.py                    # smart refresh (prices daily, fundamentals 14d, filings 7d, news 2d)

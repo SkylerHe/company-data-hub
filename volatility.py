@@ -33,6 +33,8 @@ Usage:
 import argparse
 import math
 import sys
+from collections import OrderedDict
+from datetime import datetime, timedelta
 
 import store
 
@@ -99,6 +101,84 @@ def realized_vol_table(db, company, windows=(20, 30, 60, 90)):
     print("  " + "-" * 40)
     print("  Compare these to an option's IMPLIED vol: implied > realized favors\n"
           "  SELLING premium; implied < realized favors BUYING it.\n")
+
+
+# ---------------------------------------------------------------------------
+# 1b. IV Rank / IV Percentile from the option_quotes history
+# ---------------------------------------------------------------------------
+def _atm_iv_history(db, underlying, expiry=None):
+    """[(snapshot_at, atm_iv), ...] oldest→newest: one representative (at-the-money)
+    implied vol per snapshot. ATM = the strike nearest that snapshot's underlying
+    price (mean across call/put if both quoted). This is the series IV Rank ranks."""
+    name = store.resolve_instrument(db, underlying)
+    iid = store.company_id(db, name, create=False) if name else None
+    if iid is None:
+        return []
+    q = ("SELECT snapshot_at, strike, implied_vol, underlying_price FROM option_quotes "
+         "WHERE instrument_id=? AND implied_vol IS NOT NULL")
+    args = [iid]
+    if expiry:
+        q += " AND expiry=?"; args.append(expiry)
+    q += " ORDER BY snapshot_at"
+    groups = OrderedDict()
+    for sa, strike, iv, und in db.execute(q, args).fetchall():
+        groups.setdefault(sa, []).append((strike, iv, und))
+    hist = []
+    for sa, items in groups.items():
+        und = next((u for _, _, u in items if u), None)
+        if und is not None:
+            atm_strike = min(items, key=lambda t: abs(t[0] - und))[0]
+        else:                                   # no spot on file → use the median strike
+            strikes = sorted({s for s, _, _ in items})
+            atm_strike = strikes[len(strikes) // 2]
+        at = [iv for s, iv, _ in items if s == atm_strike]
+        if at:
+            hist.append((sa, sum(at) / len(at)))
+    return hist
+
+
+def iv_rank(db, underlying, expiry=None, lookback_days=252):
+    """Where the LATEST implied vol sits vs. its own recent history.
+
+    Returns a dict with current IV, the window low/high, IV Rank (0=low,100=high of
+    the range) and IV Percentile (% of past snapshots below today), or None if there
+    isn't enough history. Needs several snapshots from scrape_ibkr_options.py first."""
+    hist = _atm_iv_history(db, underlying, expiry)
+    if lookback_days and hist:
+        cutoff = datetime.fromisoformat(hist[-1][0]) - timedelta(days=lookback_days)
+        hist = [(sa, iv) for sa, iv in hist if datetime.fromisoformat(sa) >= cutoff]
+    if len(hist) < 2:
+        return None
+    ivs = [iv for _, iv in hist]
+    cur, lo, hi = ivs[-1], min(ivs), max(ivs)
+    rank = (cur - lo) / (hi - lo) * 100 if hi > lo else None
+    pct = sum(1 for v in ivs[:-1] if v < cur) / (len(ivs) - 1) * 100
+    return {"current": cur, "low": lo, "high": hi, "rank": rank,
+            "percentile": pct, "n": len(ivs)}
+
+
+def iv_rank_report(db, underlying, expiry=None, lookback_days=252):
+    r = iv_rank(db, underlying, expiry, lookback_days)
+    name = store.resolve_instrument(db, underlying) or underlying
+    if r is None:
+        print(f"\n{name}: not enough option_quotes history for IV Rank yet.\n"
+              f"  Capture snapshots over time with scrape_ibkr_options.py, then re-run.\n")
+        return
+    print(f"\nIV Rank — {name}" + (f"  ({expiry})" if expiry else ""))
+    print(f"  snapshots used: {r['n']}   lookback: {lookback_days}d")
+    print("  " + "-" * 44)
+    print(f"  current ATM IV   {r['current'] * 100:6.1f}%")
+    print(f"  range low/high   {r['low'] * 100:6.1f}%  /  {r['high'] * 100:5.1f}%")
+    rank = f"{r['rank']:.0f}" if r["rank"] is not None else "n/a"
+    print(f"  IV Rank          {rank:>6}   (0=cheapest, 100=richest in range)")
+    print(f"  IV Percentile    {r['percentile']:6.0f}   (% of days below today)")
+    print("  " + "-" * 44)
+    if r["rank"] is not None:
+        if r["rank"] >= 50:
+            lean = "premium is RICH → lean toward SELLING options (collect, expect IV to fall)"
+        else:
+            lean = "premium is CHEAP → lean toward BUYING options (pay little, expect IV to rise)"
+        print(f"  Read: {lean}\n  (volatility mean-reverts, which is why the lean has an edge)\n")
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +268,9 @@ def main():
     ap = argparse.ArgumentParser(description="Realized volatility & option Greeks (read-only)")
     ap.add_argument("--db", default=store.DB_PATH)
     ap.add_argument("--company", help="Realized vol for this name/ticker (from prices)")
+    ap.add_argument("--iv-rank", dest="iv_rank", help="IV Rank/Percentile for this name (from option_quotes)")
+    ap.add_argument("--expiry", help="Restrict IV Rank to one expiry (YYYY-MM-DD)")
+    ap.add_argument("--lookback", type=int, default=252, help="IV Rank lookback in days (default 252)")
     ap.add_argument("--greeks", action="store_true", help="Compute option price + Greeks")
     ap.add_argument("--spot", type=float, help="Underlying price S")
     ap.add_argument("--strike", type=float, help="Strike K")
@@ -211,6 +294,11 @@ def main():
         else:
             sigma = args.iv / 100.0
         print_greeks(args.spot, args.strike, args.days, sigma, r, q, args.right)
+        return
+
+    if args.iv_rank:
+        db = store.get_db(args.db)
+        iv_rank_report(db, args.iv_rank, expiry=args.expiry, lookback_days=args.lookback)
         return
 
     if args.company:
