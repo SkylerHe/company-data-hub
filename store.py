@@ -162,6 +162,35 @@ def init_db(db: sqlite3.Connection) -> None:
             UNIQUE(title, source)
         );
 
+        -- Option-chain snapshots: one row per (underlying, expiry, strike, right)
+        -- PER SNAPSHOT. Unlike `prices` (one row/day), we keep every timestamped pull
+        -- so a HISTORY of implied vol accumulates — that history is what later powers
+        -- IV Rank / IV Percentile (is option premium cheap or rich vs. its own past?).
+        -- `implied_vol` and the Greeks are stored as decimals (0.1905 = 19.05%,
+        -- delta 0.42, ...), exactly as IBKR's model reports them. `opt_right` avoids
+        -- the SQL keyword RIGHT.
+        CREATE TABLE IF NOT EXISTS option_quotes (
+            id               INTEGER PRIMARY KEY,
+            instrument_id    INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+            expiry           TEXT NOT NULL,     -- 'YYYY-MM-DD' option expiration
+            strike           REAL NOT NULL,
+            opt_right        TEXT NOT NULL,     -- 'C' | 'P'
+            bid              REAL,
+            ask              REAL,
+            last             REAL,
+            underlying_price REAL,              -- spot at snapshot time
+            implied_vol      REAL,              -- decimal (0.1905 = 19.05%)
+            delta            REAL,
+            gamma            REAL,
+            vega             REAL,              -- per 1.00 vol (÷100 for per-1%)
+            theta            REAL,              -- per day
+            rho              REAL,              -- per 1.00 rate (÷100 for per-1%)
+            model_price      REAL,
+            source           TEXT,              -- 'IBKR'
+            snapshot_at      TEXT NOT NULL,     -- ISO timestamp of this pull
+            UNIQUE(instrument_id, expiry, strike, opt_right, snapshot_at)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_news_company_date
             ON news(company_id, published_at);
         CREATE INDEX IF NOT EXISTS idx_papers_topic
@@ -172,6 +201,8 @@ def init_db(db: sqlite3.Connection) -> None:
             ON metrics(company_id, metric, period);
         CREATE INDEX IF NOT EXISTS idx_filings_company_date
             ON filings(company_id, date);
+        CREATE INDEX IF NOT EXISTS idx_option_quotes_lookup
+            ON option_quotes(instrument_id, expiry, snapshot_at);
         CREATE INDEX IF NOT EXISTS idx_instruments_ticker
             ON instruments(ticker);
         CREATE INDEX IF NOT EXISTS idx_instruments_asset_class
@@ -499,6 +530,79 @@ def get_prices(db, instrument, start=None, end=None, field="close"):
         q += " AND date <= ?"; args.append(end)
     q += " ORDER BY date"
     return db.execute(q, args).fetchall()
+
+
+# ----------------------------------------------------------------------------
+# Option-chain snapshots (implied vol + Greeks over time)
+# ----------------------------------------------------------------------------
+def add_option_quote(db, underlying, expiry, strike, opt_right, *, bid=None, ask=None,
+                     last=None, underlying_price=None, implied_vol=None, delta=None,
+                     gamma=None, vega=None, theta=None, rho=None, model_price=None,
+                     source=None, snapshot_at=None) -> None:
+    """Upsert one option-chain snapshot row (keyed by underlying+expiry+strike+right+time).
+
+    `underlying` is the stored instrument name or ticker; `opt_right` is 'C'/'P'
+    (first letter is taken, case-insensitive). Re-running the same pull at the same
+    `snapshot_at` overwrites in place; a later pull adds a new timestamped row so IV
+    history builds up. Vol/Greeks are stored as decimals, as IBKR reports them."""
+    iid = company_id(db, resolve_instrument(db, underlying) or underlying)
+    r = (opt_right or "").strip().upper()[:1]
+    ts = snapshot_at or _now()
+    db.execute(
+        """
+        INSERT INTO option_quotes
+            (instrument_id, expiry, strike, opt_right, bid, ask, last, underlying_price,
+             implied_vol, delta, gamma, vega, theta, rho, model_price, source, snapshot_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(instrument_id, expiry, strike, opt_right, snapshot_at) DO UPDATE SET
+            bid=excluded.bid, ask=excluded.ask, last=excluded.last,
+            underlying_price=excluded.underlying_price, implied_vol=excluded.implied_vol,
+            delta=excluded.delta, gamma=excluded.gamma, vega=excluded.vega,
+            theta=excluded.theta, rho=excluded.rho, model_price=excluded.model_price,
+            source=excluded.source
+        """,
+        (iid, expiry, strike, r, bid, ask, last, underlying_price, implied_vol,
+         delta, gamma, vega, theta, rho, model_price, source, ts),
+    )
+    db.commit()
+
+
+def resolve_instrument(db, query):
+    """Return the instrument `name` for a name or ticker query, else None.
+    (Small local twin of analyze.resolve_company so store stays import-free.)"""
+    row = db.execute(
+        "SELECT name FROM instruments WHERE name = ? OR ticker = ? LIMIT 1",
+        (query, query),
+    ).fetchone()
+    return row[0] if row else None
+
+
+def get_option_quotes(db, underlying, expiry=None, opt_right=None, latest_only=True):
+    """Return option-quote rows for an underlying (newest snapshot first).
+
+    latest_only=True keeps just the most recent snapshot per (expiry, strike, right)."""
+    name = resolve_instrument(db, underlying)
+    iid = company_id(db, name, create=False) if name else None
+    if iid is None:
+        return []
+    q = "SELECT * FROM option_quotes WHERE instrument_id=?"
+    args = [iid]
+    if expiry:
+        q += " AND expiry=?"; args.append(expiry)
+    if opt_right:
+        q += " AND opt_right=?"; args.append(opt_right.strip().upper()[:1])
+    q += " ORDER BY snapshot_at DESC, expiry, strike"
+    db.row_factory = sqlite3.Row
+    rows = db.execute(q, args).fetchall()
+    if not latest_only:
+        return rows
+    seen, out = set(), []
+    for row in rows:                        # rows are newest-first, so first wins
+        key = (row["expiry"], row["strike"], row["opt_right"])
+        if key not in seen:
+            seen.add(key)
+            out.append(row)
+    return out
 
 
 # Trailing simple moving averages precomputed into the prices table (short/med/long).
