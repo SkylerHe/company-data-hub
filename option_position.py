@@ -9,6 +9,7 @@ Greeks. Kept in one place so the two front-ends never duplicate this logic.
 Read-only: nothing here writes to the database.
 """
 
+import store
 import volatility
 
 # Each strategy's legs as (right, qty_sign). +1 = long/own, -1 = short/sold.
@@ -59,7 +60,12 @@ def compute_legs_offline(spot, iv_pct, days, needed):
     return legs
 
 
-def legs_from_db(db, store, company, expiry, needed):
+def iso_expiry(s):
+    """Normalize 'YYYYMMDD' or 'YYYY-MM-DD' to 'YYYY-MM-DD'."""
+    return s if "-" in s else f"{s[:4]}-{s[4:6]}-{s[6:]}"
+
+
+def legs_from_db(db, company, expiry, needed):
     """Build legs from the latest stored option_quotes snapshot. Returns (legs, spot)."""
     legs = {}
     quotes = store.get_option_quotes(db, company, expiry=expiry)
@@ -91,3 +97,34 @@ def position_greeks(strategy, legs, contracts):
             if v is not None:
                 net[g] += sign * v * mult
     return net
+
+
+def build_context(db, strategy, company, expiry, put_strike, call_strike,
+                  basis=None, contracts=1, spot=None, iv=None, days=None):
+    """Assemble the position dict both exporters (Excel, Sheets) render from.
+
+    Offline when spot+iv+days are all given (Black-Scholes); otherwise reads the
+    latest stored option_quotes snapshot from `db`. Raises ValueError on bad/missing
+    inputs (no strike, no data)."""
+    exp = iso_expiry(expiry)
+    needed = needed_legs(strategy, put_strike, call_strike)
+    if spot is not None and iv is not None and days is not None:
+        legs, spot_out, source = compute_legs_offline(spot, iv, days, needed), spot, \
+            "offline / Black-Scholes"
+    else:
+        if db is None:
+            raise ValueError("need --spot/--iv/--days or a db with stored quotes")
+        legs, spot_out = legs_from_db(db, company, exp, needed)
+        source = "stored option_quotes snapshot"
+        if not legs or spot_out is None:
+            raise ValueError(f"no stored quotes for {company} {exp}; scrape first "
+                             "or pass --spot/--iv/--days")
+    return {
+        "strategy": strategy, "company": company, "expiry": exp,
+        "legs": legs, "needed": needed, "spot": spot_out,
+        "basis": basis if basis is not None else spot_out,
+        "contracts": contracts, "source": source,
+        "kp": put_strike, "kc": call_strike,
+        "cp": legs.get(("P", put_strike), {}).get("premium", 0.0) or 0.0,
+        "cc": legs.get(("C", call_strike), {}).get("premium", 0.0) or 0.0,
+    }

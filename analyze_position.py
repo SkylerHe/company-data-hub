@@ -47,7 +47,7 @@ def gather_live(db, args, iso_expiry, needed):
                            strikes=strikes, rights="CP", source="IBKR")
     finally:
         ib.disconnect()
-    legs, spot = op.legs_from_db(db, store, args.company, iso_expiry, needed)
+    legs, spot = op.legs_from_db(db, args.company, iso_expiry, needed)
     for right, k in needed:
         if (right, k) not in legs:
             print(f"  ! no live quote for {k:g}{right}")

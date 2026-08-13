@@ -184,36 +184,16 @@ def main():
     ap.add_argument("--days", type=float, help="Offline: days to expiration")
     args = ap.parse_args()
 
-    iso_expiry = f"{args.expiry[:4]}-{args.expiry[4:6]}-{args.expiry[6:]}" \
-        if "-" not in args.expiry else args.expiry
-    try:
-        needed = op.needed_legs(args.strategy, args.put_strike, args.call_strike)
-    except ValueError as e:
-        ap.error(str(e))
-
     offline = args.spot is not None and args.iv is not None and args.days is not None
-    if offline:
-        legs = op.compute_legs_offline(args.spot, args.iv, args.days, needed)
-        spot, source = args.spot, "offline / Black-Scholes"
-    else:
-        db = store.get_db(args.db)
-        legs, spot = op.legs_from_db(db, store, args.company, iso_expiry, needed)
-        source = "stored option_quotes snapshot"
-        if not legs or spot is None:
-            print(f"No stored quotes for {args.company} {iso_expiry}. Run "
-                  f"scrape_ibkr_options.py first, or pass --spot/--iv/--days for offline.",
-                  file=sys.stderr)
-            sys.exit(1)
-
-    basis = args.basis if args.basis is not None else spot
-    ctx = {
-        "strategy": args.strategy, "company": args.company, "expiry": iso_expiry,
-        "legs": legs, "needed": needed, "spot": spot, "basis": basis,
-        "contracts": args.contracts, "source": source,
-        "kp": args.put_strike, "kc": args.call_strike,
-        "cp": legs.get(("P", args.put_strike), {}).get("premium", 0.0) or 0.0,
-        "cc": legs.get(("C", args.call_strike), {}).get("premium", 0.0) or 0.0,
-    }
+    db = None if offline else store.get_db(args.db)
+    try:
+        ctx = op.build_context(db, args.strategy, args.company, args.expiry,
+                               args.put_strike, args.call_strike, basis=args.basis,
+                               contracts=args.contracts, spot=args.spot,
+                               iv=args.iv, days=args.days)
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
     out = args.out or f"{args.company}_{args.strategy}_options.xlsx"
     build_workbook(ctx).save(out)
     print(f"Wrote {out}  (sheets: Position · Greeks · Payoff — with a payoff chart)")
