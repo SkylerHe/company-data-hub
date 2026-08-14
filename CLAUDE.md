@@ -38,6 +38,7 @@ source venv/bin/activate            # all scripts assume the venv + repo-root CW
 
 # Analysis (read-only; name or ticker)
 python analyze.py   --company MSFT              # fundamental health
+python analyze.py   --company MSFT --common-size # multi-year common-size statements (income/balance/cash-flow)
 python valuation.py --company MSFT              # intrinsic value + verdict
 python report.py    --company MSFT              # → editable .xlsx model
 python industry.py  --industry Semiconductors   # peer map (or --company NVIDIA)
