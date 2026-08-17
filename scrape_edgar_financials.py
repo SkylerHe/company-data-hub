@@ -434,7 +434,14 @@ def main():
             print(f"    ! unexpected error, skipping: {type(e).__name__}: {e}")
             totals["errors"] += 1
             continue
-        print(f"    filings={r['filings']} written={r['written']} errors={r['errors']}")
+        # Materialize the common-size statements from the dollars we just stored,
+        # so every company with EDGAR data carries its %-of-revenue / %-of-assets view.
+        if not args.dry_run and r["written"]:
+            cs = store.recompute_common_size(db, name)
+            print(f"    filings={r['filings']} written={r['written']} "
+                  f"common_size={cs} errors={r['errors']}")
+        else:
+            print(f"    filings={r['filings']} written={r['written']} errors={r['errors']}")
         for k in totals:
             totals[k] += r[k]
 

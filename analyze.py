@@ -310,10 +310,68 @@ def format_report(d: dict) -> str:
     return "\n".join(L)
 
 
+# ----------------------------------------------------------------------------
+# Common-size view (reads the materialized common_size table)
+# ----------------------------------------------------------------------------
+_CS_TITLE = {
+    "income":    "Income statement (% of revenue)",
+    "balance":   "Balance sheet (% of total assets)",
+    "cash_flow": "Cash flow (% of revenue)",
+}
+_CS_ORDER = {
+    "income":    ["revenue", "operating_income", "net_income"],
+    "balance":   ["total_assets", "current_assets", "total_liabilities",
+                  "current_liabilities", "total_equity"],
+    "cash_flow": ["operating_cash_flow", "capital_expenditures", "free_cash_flow"],
+}
+_CS_LABEL = {
+    "revenue": "Revenue", "operating_income": "Operating income",
+    "net_income": "Net income", "total_assets": "Total assets",
+    "current_assets": "Current assets", "total_liabilities": "Total liabilities",
+    "current_liabilities": "Current liabilities", "total_equity": "Total equity",
+    "operating_cash_flow": "Operating cash flow",
+    "capital_expenditures": "Capital expenditures", "free_cash_flow": "Free cash flow",
+}
+
+
+def common_size_view(db, company):
+    """Nested {statement: {line_item: {period: pct}}} + sorted periods, from the table."""
+    data, periods = {}, set()
+    for stmt, item, period, pct, _base in store.get_common_size(db, company):
+        data.setdefault(stmt, {}).setdefault(item, {})[period] = pct
+        periods.add(period)
+    return data, sorted(periods)
+
+
+def format_common_size(company, data, periods) -> str:
+    if not periods:
+        return (f"No common-size data for {company}. Populate it with:\n"
+                f"  python scrape_edgar_financials.py --company \"{company}\"\n"
+                f"  python store.py --recompute-common-size")
+    L = [f"Common-size statements — {company}", "=" * 60,
+         "Fiscal years: " + ", ".join(periods),
+         "Each line = % of its base (income/cash-flow ÷ revenue, balance ÷ assets).", ""]
+    for stmt in ("income", "balance", "cash_flow"):
+        if stmt not in data:
+            continue
+        L.append(_CS_TITLE[stmt] + ":")
+        order = _CS_ORDER[stmt]
+        items = [i for i in order if i in data[stmt]] + \
+                [i for i in data[stmt] if i not in order]
+        for item in items:
+            s = data[stmt][item]
+            cells = " ".join(_pct(s.get(p)) for p in periods)
+            L.append(f"  {_CS_LABEL.get(item, item):<22} {cells}")
+        L.append("")
+    return "\n".join(L).rstrip()
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fundamental analysis (read-only)")
     ap.add_argument("--db", default=store.DB_PATH)
     ap.add_argument("--company", required=True, help="company name or ticker")
+    ap.add_argument("--common-size", dest="common_size", action="store_true",
+                    help="print the multi-year common-size statements (from common_size)")
     ap.add_argument("--json", action="store_true", help="emit raw JSON")
     args = ap.parse_args()
 
@@ -322,6 +380,15 @@ def main():
     if not name:
         print(f"'{args.company}' not found in {args.db}", file=sys.stderr)
         sys.exit(1)
+
+    if args.common_size:
+        cs, periods = common_size_view(db, name)
+        if args.json:
+            print(json.dumps({"company": name, "periods": periods, "common_size": cs}, indent=2))
+        else:
+            print(format_common_size(name, cs, periods))
+        db.close()
+        return
 
     data = fundamentals(db, name)
     print(json.dumps(data, indent=2) if args.json else format_report(data))

@@ -191,6 +191,23 @@ def init_db(db: sqlite3.Connection) -> None:
             UNIQUE(instrument_id, expiry, strike, opt_right, snapshot_at)
         );
 
+        -- Common-size statements: each EDGAR line item as a fraction of its base
+        -- (income & cash-flow ÷ revenue, balance sheet ÷ total_assets), per fiscal
+        -- year. DERIVED from the SEC/EDGAR dollar rows in `metrics` — a materialized
+        -- view rebuilt by store.recompute_common_size() after an EDGAR pull (like the
+        -- moving averages after a price pull), not a separate data source. `pct` is a
+        -- decimal (0.22 = 22%); `base_item` records which denominator was used.
+        CREATE TABLE IF NOT EXISTS common_size (
+            company_id  INTEGER NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+            statement   TEXT NOT NULL,     -- 'income' | 'balance' | 'cash_flow'
+            line_item   TEXT NOT NULL,     -- e.g. 'net_income', 'total_liabilities'
+            period      TEXT NOT NULL,     -- 'FY2024'
+            pct         REAL,              -- line_item / base  (0.22 = 22%)
+            base_item   TEXT NOT NULL,     -- 'revenue' | 'total_assets'
+            computed_at TEXT,
+            PRIMARY KEY (company_id, statement, line_item, period)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_news_company_date
             ON news(company_id, published_at);
         CREATE INDEX IF NOT EXISTS idx_papers_topic
@@ -203,6 +220,8 @@ def init_db(db: sqlite3.Connection) -> None:
             ON filings(company_id, date);
         CREATE INDEX IF NOT EXISTS idx_option_quotes_lookup
             ON option_quotes(instrument_id, expiry, snapshot_at);
+        CREATE INDEX IF NOT EXISTS idx_common_size_lookup
+            ON common_size(company_id, period);
         CREATE INDEX IF NOT EXISTS idx_instruments_ticker
             ON instruments(ticker);
         CREATE INDEX IF NOT EXISTS idx_instruments_asset_class
@@ -783,6 +802,98 @@ def stats(db) -> None:
             print(f"  {name:<20} {nnews:>4} / {nmetrics:>4} / {nfilings:>4}   {inds:<28} {lf or '-'}")
 
 
+# ----------------------------------------------------------------------------
+# Common-size statements (derived from the SEC/EDGAR dollar line items)
+# ----------------------------------------------------------------------------
+SEC_SOURCE = "SEC/EDGAR"
+
+# statement -> (base line item, [line items expressed as a % of that base]).
+# Only EDGAR statement line items; share counts are excluded (not $ amounts).
+COMMON_SIZE_MAP = {
+    "income":    ("revenue",      ["revenue", "operating_income", "net_income"]),
+    "balance":   ("total_assets", ["total_assets", "total_liabilities", "total_equity",
+                                   "current_assets", "current_liabilities"]),
+    "cash_flow": ("revenue",      ["operating_cash_flow", "capital_expenditures",
+                                   "free_cash_flow"]),
+}
+
+
+def recompute_common_size(db, company) -> int:
+    """Rebuild common-size rows for one company from its SEC/EDGAR dollar metrics.
+
+    Income & cash-flow items are stored as a fraction of revenue; balance-sheet items
+    as a fraction of total assets. A (statement, period) is skipped when its base is
+    missing or zero — you can't common-size without the denominator. Recomputes the
+    whole set, so it's idempotent (safe to call after every EDGAR pull). Returns rows
+    written."""
+    cid = company_id(db, company, create=False)
+    if cid is None:
+        return 0
+    rows = db.execute(
+        "SELECT metric, period, value FROM metrics WHERE company_id=? AND source=?",
+        (cid, SEC_SOURCE)).fetchall()
+    by_mp = {(m, p): v for m, p, v in rows if v is not None}
+    periods = {p for (_m, p) in by_mp}
+    written = 0
+    now = _now()
+    for statement, (base_item, items) in COMMON_SIZE_MAP.items():
+        for period in periods:
+            base = by_mp.get((base_item, period))
+            if not base:                        # missing or zero → can't divide
+                continue
+            for item in items:
+                val = by_mp.get((item, period))
+                if val is None:
+                    continue
+                db.execute(
+                    """
+                    INSERT INTO common_size
+                        (company_id, statement, line_item, period, pct, base_item, computed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(company_id, statement, line_item, period) DO UPDATE SET
+                        pct = excluded.pct, base_item = excluded.base_item,
+                        computed_at = excluded.computed_at
+                    """,
+                    (cid, statement, item, period, val / base, base_item, now))
+                written += 1
+    db.commit()
+    return written
+
+
+def recompute_all_common_size(db):
+    """Recompute common-size for every company that has SEC/EDGAR statements.
+    Returns (companies, rows)."""
+    cids = db.execute(
+        "SELECT DISTINCT company_id FROM metrics WHERE source=?", (SEC_SOURCE,)).fetchall()
+    companies = total = 0
+    for (cid,) in cids:
+        row = db.execute("SELECT name FROM instruments WHERE id=?", (cid,)).fetchone()
+        if not row:
+            continue
+        n = recompute_common_size(db, row[0])
+        if n:
+            companies += 1
+            total += n
+    return companies, total
+
+
+def get_common_size(db, company, statement=None, period=None):
+    """Common-size rows [(statement, line_item, period, pct, base_item), ...] for a
+    company, newest period first; optionally filtered by statement / period."""
+    cid = company_id(db, company, create=False)
+    if cid is None:
+        return []
+    q = ("SELECT statement, line_item, period, pct, base_item FROM common_size "
+         "WHERE company_id=?")
+    args = [cid]
+    if statement:
+        q += " AND statement=?"; args.append(statement)
+    if period:
+        q += " AND period=?"; args.append(period)
+    q += " ORDER BY period DESC, statement, line_item"
+    return db.execute(q, args).fetchall()
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Finance database storage layer")
     ap.add_argument("--init", action="store_true", help="create the database schema")
@@ -792,11 +903,15 @@ if __name__ == "__main__":
     ap.add_argument("--in-industry", metavar="NAME",
                     help="list the companies in an industry, then exit")
     ap.add_argument("--stats", action="store_true", help="show row counts")
+    ap.add_argument("--recompute-common-size", dest="recompute_common_size",
+                    action="store_true",
+                    help="rebuild common-size statements for every company with EDGAR data")
     ap.add_argument("--show", metavar="URL",
                     help="print the full stored original text of a news item by URL")
     args = ap.parse_args()
 
-    if not (args.init or args.load or args.in_industry or args.stats or args.show):
+    if not (args.init or args.load or args.in_industry or args.stats
+            or args.recompute_common_size or args.show):
         ap.print_help(sys.stderr)
         sys.exit(1)
 
@@ -809,5 +924,8 @@ if __name__ == "__main__":
         print(f"{args.in_industry}: " + (", ".join(names) if names else "(none)"))
     if args.stats:
         stats(db)
+    if args.recompute_common_size:
+        cos, rows = recompute_all_common_size(db)
+        print(f"Common-size: {rows} rows across {cos} companies with EDGAR data.")
     if args.show:
         show_news(db, url=args.show)
