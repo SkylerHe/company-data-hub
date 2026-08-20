@@ -85,6 +85,8 @@ python option_report.py --strategy collar --company QQQ --expiry 2026-08-20 --pu
 - **Secrets** (SEC_IDENTITY, SMTP creds, API keys) live in `.env` (gitignored). Never commit them.
 
 ## Automation & alerting
+**Every step in `run_daily.sh` runs under a bash wall-clock watchdog** (`run_step`, killing the whole process tree — macOS has no coreutils `timeout`). This is not optional: **launchd will not start a new instance while the previous one is still alive**, so one hung child silently cancels every future run. In Aug 2026 `scrape_ibkr.py` hung on a degraded IB Gateway and `run_daily.sh` stayed alive **7 days** — no runs, everything went stale, and *nothing alerted because `health_check.py` runs at the END of the same script it was stuck inside*. The watchdog guarantees the health check still executes.
+
 `run_daily.sh` (launchd) runs `update.py`, records the day's account NAV (`scrape_ibkr_account.py --account`, one `netliquidation` point/day — needs IB Gateway, skips if down), then `health_check.py`, logging to `scraper.log`. Health check emails on **stale data**, a **non-IBKR source down**, or a **NAV gap over `NAV_STALE_DAYS` (7)** — but **IBKR connectivity failures never alert** (IB Gateway is flaky and self-recovers; Yahoo fallback keeps prices fresh meanwhile).
 
 ## Learning layer
