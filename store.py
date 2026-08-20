@@ -289,6 +289,24 @@ def upsert_company(db, name, ticker=None, sector=None, meta=None,
     return company_id(db, name)
 
 
+def delete_metric(db, company, metric, source) -> int:
+    """Remove every stored row for one (company, metric, source). Returns rows deleted.
+
+    Used by collectors to retract their OWN earlier bad output - e.g. scrape_yahoo
+    detects a foreign filer whose ratios mix two currencies and must clear values a
+    previous run wrote before that check existed. Analysis reads the newest row per
+    metric, so a stale corrupt row would otherwise outlive the fix."""
+    iid = company_id(db, company, create=False)
+    if iid is None:
+        return 0
+    cur = db.execute(
+        "DELETE FROM metrics WHERE company_id = ? AND metric = ? AND source = ?",
+        (iid, metric, source),
+    )
+    db.commit()
+    return cur.rowcount
+
+
 def company_id(db, name, create=True):
     row = db.execute("SELECT id FROM instruments WHERE name = ?", (name,)).fetchone()
     if row:

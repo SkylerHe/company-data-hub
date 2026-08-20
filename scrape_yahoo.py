@@ -93,6 +93,53 @@ ALL_METRICS = (
     FUNDAMENTAL_DATA
 )
 
+# --- Foreign filers: Yahoo mixes two currencies in one `info` dict ------------
+# For a non-US filer (Panasonic, TSMC, ASML...) Yahoo quotes PRICE and MARKET CAP
+# in the listing currency but serves the FINANCIAL STATEMENTS in the company's own
+# reporting currency (JPY, TWD, EUR). Stored naively, revenue lands in the DB
+# tagged 'USD' at ~100x its true size, and every ratio Yahoo computes ACROSS the
+# two is meaningless. Detected via info['currency'] != info['financialCurrency'].
+
+# Values denominated in the FINANCIAL-statement currency -> convert to USD.
+FIN_CCY_KEYS = {
+    'totalRevenue', 'totalCash', 'totalDebt', 'totalAssets', 'freeCashflow',
+}
+
+# Ratios Yahoo builds by dividing a quote-currency figure by a financial-currency
+# one (or from a book value that doesn't match either). No scaling repairs these,
+# so they are SKIPPED for mismatched filers - a missing value beats a wrong one.
+# (scrape_finviz.py already corrects pb_ratio/ev_ebitda for the names it covers;
+# it skips ADRs, which is exactly this set.)
+CROSS_CCY_KEYS = {
+    'priceToBook', 'priceToSalesTrailing12Months', 'enterpriseToEbitda', 'bookValue',
+}
+
+_FX_CACHE = {}
+
+
+def fx_to_usd(code):
+    """Spot rate converting 1 unit of `code` into USD, or None if unavailable.
+
+    Cached per run: a full scrape touches the same few currencies repeatedly.
+    Returning None makes the caller SKIP the affected metrics rather than store a
+    figure in the wrong currency."""
+    if not code:
+        return None
+    code = code.upper()
+    if code == 'USD':
+        return 1.0
+    if code in _FX_CACHE:
+        return _FX_CACHE[code]
+    rate = None
+    try:
+        hist = yf.Ticker(f"{code}USD=X").history(period="5d")
+        if hist is not None and not hist.empty:
+            rate = _num(hist["Close"].iloc[-1])
+    except Exception:
+        rate = None
+    _FX_CACHE[code] = rate
+    return rate
+
 
 def _num(v):
     """Coerce a yfinance cell to a float, or None (also maps NaN -> None)."""
@@ -159,6 +206,13 @@ def fetch_yahoo_fundamentals(db, company, ticker):
         # Use today's date as the period
         period = datetime.now().strftime('%Y-%m-%d')
 
+        # Which currency is each number in? (see FIN_CCY_KEYS comment above)
+        quote_ccy = (info.get('currency') or 'USD').upper()
+        fin_ccy = (info.get('financialCurrency') or quote_ccy).upper()
+        mixed = fin_ccy != quote_ccy
+        if mixed:
+            print(f"    ~ foreign filer: prices in {quote_ccy}, statements in {fin_ccy}")
+
         # Collect all metrics
         for yahoo_key, metric_name, unit in ALL_METRICS:
             if yahoo_key in info and info[yahoo_key] is not None:
@@ -167,6 +221,30 @@ def fetch_yahoo_fundamentals(db, company, ticker):
                 # Convert percentages to decimal (Yahoo gives 0.15 for 15%)
                 if unit == '%' and value is not None:
                     value = value * 100  # Convert to percentage
+
+                # Order matters: bookValue is tagged 'USD' but is unrepairable for
+                # a mixed filer, so the skip must be tested BEFORE any conversion.
+                if mixed and yahoo_key in CROSS_CCY_KEYS:
+                    # Yahoo divided one currency by another - unrepairable. Also drop
+                    # anything a pre-fix run stored: analysis reads the NEWEST row per
+                    # metric, so simply not writing today would leave the bad value live.
+                    dropped = store.delete_metric(db, company, metric_name, 'Yahoo')
+                    note = f" (purged {dropped} stale)" if dropped else ""
+                    print(f"    ! {metric_name} mixes {quote_ccy}/{fin_ccy}, skipping{note}")
+                    continue
+
+                if unit == 'USD':
+                    # Statement figures use the filer's reporting currency; everything
+                    # else priced (market cap, EPS) uses the listing currency.
+                    src_ccy = fin_ccy if yahoo_key in FIN_CCY_KEYS else quote_ccy
+                    rate = fx_to_usd(src_ccy)
+                    if rate is None:
+                        print(f"    ! no {src_ccy}->USD rate, skipping {metric_name}")
+                        continue
+                    value = _num(value)
+                    if value is None:
+                        continue
+                    value *= rate
 
                 store.add_metric(db, company, metric_name, period, value, unit, 'Yahoo')
                 result["new"] += 1
