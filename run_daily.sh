@@ -16,8 +16,16 @@ LOG="scraper.log"
 #
 # macOS ships no coreutils `timeout`, so this is a bash-native watchdog. Kills the
 # whole process tree, since the hang is usually in a python grandchild.
-STEP_TIMEOUT_UPDATE=3600   # update.py: prices+fundamentals+filings+news, ~180 names
-STEP_TIMEOUT_SHORT=300     # NAV point and health check
+# Sizing matters: too tight and it kills healthy runs. Measured from scraper.log
+# (9 completed runs, 2026-08-04..08-12): 5s, 6s, 170s, 1.6h, 1.8h, 3.0h, 3.6h,
+# 4.1h, and 6.7h. update.py legitimately takes most of an evening on ~180 names,
+# so 8h leaves headroom over the observed 6.7h max while still being far below the
+# 24h schedule -- the only thing that has to hold is that a hang cannot survive to
+# block the next scheduled run.
+STEP_TIMEOUT_UPDATE=28800  # 8h. update.py: prices+fundamentals+filings+news
+STEP_TIMEOUT_SHORT=300     # 5m. NAV point and health check (a degraded gateway
+                           #     now fails in ~40s, and health_check caps its own
+                           #     HTTP calls at 10s each)
 
 _kill_tree() {
   local p=$1 c
