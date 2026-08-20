@@ -35,7 +35,7 @@ import socket
 import ssl
 import struct
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from email.message import EmailMessage
 
 import store
@@ -57,6 +57,14 @@ _load_dotenv()
 
 # Max age (days) before data is considered stale / extraction "not working".
 FRESH_LIMIT = {"prices": 2, "fundamentals": 16, "filings": 10, "news": 3}
+
+# Account NAV is recorded once per day by run_daily.sh (scrape_ibkr_account.py
+# --account), which needs IB Gateway. A single missed day is normal - the gateway is
+# flaky and IBKR *connectivity* failures never alert. But a MULTI-DAY gap is not
+# flakiness, it is a broken pipeline, and it silently destroys the NAV-vs-index
+# history that nav_chart.py and any drawdown/Sharpe work depend on. This threshold
+# is what separates the two.
+NAV_STALE_DAYS = 7
 DEFAULT_ALERT_TO = "skyleryh6km@gmail.com"
 
 
@@ -140,6 +148,30 @@ def check_sec():
 
 
 # --------------------------------------------------------------- freshness
+def check_nav_freshness(db):
+    """Age of the newest account-NAV point, against NAV_STALE_DAYS.
+
+    Deliberately separate from freshness(): those sources are keyed on `fetched_at`,
+    whereas NAV points are keyed on the trading date they represent (`period`). Also
+    separate from check_ibkr(): a gateway that is down *right now* is tolerated, but
+    a NAV series that has not advanced in a week is a real failure and DOES alert."""
+    row = db.execute(
+        """
+        SELECT MAX(m.period) FROM metrics m
+        JOIN instruments i ON i.id = m.company_id
+        WHERE i.ticker = 'PORTFOLIO' AND m.metric = 'netliquidation'
+        """
+    ).fetchone()
+    latest = row[0] if row else None
+    if not latest:
+        return False, "no NAV points recorded at all - has IB Gateway ever been up?"
+    age = (datetime.now(timezone.utc).date() - date.fromisoformat(latest)).days
+    if age > NAV_STALE_DAYS:
+        return False, (f"stale: newest point {latest} ({age}d old, limit "
+                       f"{NAV_STALE_DAYS}d) - IB Gateway has been down too long")
+    return True, f"fresh: newest point {latest} ({age}d old)"
+
+
 def freshness(db):
     rows = {
         "prices":       db.execute("SELECT MAX(fetched_at) FROM prices").fetchone()[0],
@@ -179,6 +211,13 @@ def run_checks():
         # its failures are shown in the report but never trigger an email alert.
         if not ok and not name.startswith("IBKR"):
             failures.append(f"{name}: {msg}")
+
+    nav_ok, nav_msg = check_nav_freshness(db)
+    lines.append(f"  [{'OK ' if nav_ok else 'FAIL'}] {'account NAV':<22} {nav_msg}")
+    # Unlike IBKR connectivity above, a prolonged NAV gap DOES alert - see
+    # NAV_STALE_DAYS. One missed day is flakiness; a week is a broken pipeline.
+    if not nav_ok:
+        failures.append(f"account NAV: {nav_msg}")
 
     lines.append("\nDATA FRESHNESS")
     label = {"prices": "prices", "fundamentals": "fundamentals",

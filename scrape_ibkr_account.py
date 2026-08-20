@@ -22,14 +22,14 @@ Usage:
 """
 
 import argparse
+import socket
 import sys
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 import json
 import csv
 
 try:
-    from ib_insync import IB, Stock, util
+    from ib_insync import IB
 except ImportError:
     print("Error: ib_insync not installed")
     print("Install with: pip install ib_insync")
@@ -42,21 +42,58 @@ IBKR_HOST = "127.0.0.1"
 IBKR_PORT = 4001  # IB Gateway Paper: 4001 (Gateway Live: 4002, TWS: 7496/7497)
 CLIENT_ID = 2  # Different from scraper to avoid conflicts
 
+# ib_insync's connect() runs a mandatory startup sync (positions, open/completed
+# orders, account updates, executions) and applies THIS timeout to each phase. On a
+# degraded gateway every phase times out, so a large value just burns minutes in the
+# daily job before failing anyway - measured 180s at timeout=90. Keep it short and
+# fail fast; check_gateway() below explains which failure it was.
+CONNECT_TIMEOUT = 20
+
+
+def check_gateway():
+    """Is the API port even open? Returns (reachable, message).
+
+    Separates the two failure modes that look identical from connect() alone:
+    a gateway that ISN'T RUNNING (connection refused) versus one that is running
+    and completes the API handshake but never answers data requests - the state
+    that makes ib_insync's startup sync hang. Only the second needs a restart."""
+    try:
+        socket.create_connection((IBKR_HOST, IBKR_PORT), timeout=4).close()
+        return True, f"port {IBKR_PORT} is open"
+    except OSError as e:
+        return False, f"port {IBKR_PORT} unreachable ({type(e).__name__})"
+
 
 def connect_ibkr():
-    """Connect to IBKR TWS or Gateway."""
+    """Connect to IBKR TWS or Gateway. Returns an IB handle, or None if unreachable.
+
+    Returns None rather than exiting: the daily NAV point is a best-effort step in
+    run_daily.sh and a down gateway must not abort the caller. A prolonged gap is
+    caught by health_check.check_nav_freshness() once it exceeds NAV_STALE_DAYS."""
+    reachable, why = check_gateway()
+    if not reachable:
+        print(f"✗ IB Gateway not running: {why}")
+        print("  Start IB Gateway and log in (paper: 4001, live: 4002).")
+        return None
+
     ib = IB()
     try:
-        ib.connect(IBKR_HOST, IBKR_PORT, clientId=CLIENT_ID, timeout=10)
+        ib.connect(IBKR_HOST, IBKR_PORT, clientId=CLIENT_ID, timeout=CONNECT_TIMEOUT)
         print(f"✓ Connected to IBKR at {IBKR_HOST}:{IBKR_PORT}")
         return ib
     except Exception as e:
-        print(f"✗ Failed to connect to IBKR: {e}")
-        print("\nMake sure TWS or IB Gateway is running and you're logged in:")
-        print("  - TWS Paper Trading: localhost:7497")
-        print("  - TWS Live Trading: localhost:7496")
-        print("  - IB Gateway: localhost:4001 (paper) or 4002 (live)")
-        sys.exit(1)
+        # TimeoutError arrives with an EMPTY message, which is what made this
+        # failure look like "gateway down" for weeks when it was actually up.
+        detail = str(e) or f"{type(e).__name__} (no detail)"
+        print(f"✗ Connected to the API but the startup sync failed: {detail}")
+        print(f"  {why}, so the Gateway IS running - it just stops answering data")
+        print("  requests (positions / orders / executions). That is a known IB")
+        print("  Gateway degraded state: RESTART IB GATEWAY and log in again.")
+        try:
+            ib.disconnect()
+        except Exception:
+            pass
+        return None
 
 
 def export_portfolio(ib, db):
@@ -193,14 +230,28 @@ def export_account_summary(ib, db):
     print("="*60)
     
     account_values = ib.accountValues()
-    
+
+    # IBKR returns ONE ROW PER CURRENCY for most tags, plus a 'BASE' row holding the
+    # account total. A plain dict assignment keeps whichever row happens to come LAST,
+    # so a lone foreign-currency balance could silently become the reported NAV.
+    # Rank explicitly: BASE (account total) > USD > anything else.
+    def _rank(cur):
+        return {'BASE': 0, 'USD': 1}.get((cur or '').upper(), 2)
+
     summary = {}
     for item in account_values:
-        summary[item.tag] = {
-            'value': item.value,
-            'currency': item.currency,
-            'account': item.account
-        }
+        prev = summary.get(item.tag)
+        if prev is None or _rank(item.currency) < _rank(prev['currency']):
+            summary[item.tag] = {
+                'value': item.value,
+                'currency': item.currency,
+                'account': item.account,
+            }
+
+    accounts = sorted({v.account for v in account_values if v.account})
+    if len(accounts) > 1:
+        print(f"  ! {len(accounts)} accounts visible ({', '.join(accounts)}) - "
+              f"verify this is the account you mean to track")
     
     # Print key metrics
     print(f"\nAccount: {account_values[0].account if account_values else 'N/A'}\n")
@@ -223,15 +274,17 @@ def export_account_summary(ib, db):
     with open('ibkr_account_summary.json', 'w') as f:
         json.dump(summary, f, indent=2)
     
-    print(f"\n✓ Exported account summary to ibkr_account_summary.json")
+    print("\n✓ Exported account summary to ibkr_account_summary.json")
     
     # Store key metrics in database
     date = datetime.now().strftime('%Y-%m-%d')
     
     # Store account-level metrics (no specific company)
     # We'll create a special "PORTFOLIO" company for account-level data
-    db.execute("INSERT OR IGNORE INTO companies (name, ticker) VALUES ('PORTFOLIO', 'PORTFOLIO')")
-    db.commit()
+    # `companies` is a VIEW over `instruments`; a raw INSERT relies on trigger
+    # behaviour and would not set asset_class='account' (which the price scrapers
+    # use to skip this pseudo-instrument). Go through store instead.
+    store.upsert_company(db, 'PORTFOLIO', ticker='PORTFOLIO', asset_class='account')
     
     for metric in key_metrics:
         if metric in summary:
@@ -257,6 +310,9 @@ def main():
     
     # Connect to IBKR
     ib = connect_ibkr()
+    if ib is None:
+        print("\nSkipping: no usable IBKR connection. Nothing written.")
+        sys.exit(1)
     
     # Connect to database
     db = store.get_db(args.db)
