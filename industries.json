@@ -817,6 +817,10 @@
         "ticker": "ALB"
       },
       {
+        "name": "Panasonic Holdings",
+        "ticker": "PCRFF"
+      },
+      {
         "name": "Global X Lithium & Battery Tech ETF",
         "ticker": "LIT",
         "etf": true
